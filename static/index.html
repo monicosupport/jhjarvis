@@ -1,1128 +1,953 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-black">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.A.R.V.I.S. | FULL EDITION v2.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --c: #00f3ff;
-            --cd: #020610;
-            --cr: #ff003c;
-            --cg: #00ff88;
-            --cy: #f59e0b;
-            --glass: rgba(2,6,16,.7);
-            --border: rgba(0,243,255,.18);
-        }
-        *{box-sizing:border-box}
-        html,body{height:100%;overflow:hidden}
-        body{
-            font-family:'Rajdhani',sans-serif;
-            background:var(--cd);
-            background-image:
-                radial-gradient(ellipse at 50% 40%, rgba(0,243,255,.06) 0%, transparent 65%),
-                linear-gradient(rgba(0,243,255,.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,243,255,.025) 1px, transparent 1px);
-            background-size:100% 100%, 36px 36px, 36px 36px;
-            color:var(--c);
-        }
-        .mono{font-family:'Share Tech Mono',monospace}
-        .orb{font-family:'Orbitron',sans-serif}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>J.A.R.V.I.S. — Local AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --c: #00d4ff;       /* primary cyan */
+    --g: #00ff9d;       /* accent green */
+    --p: #bd00ff;       /* accent purple */
+    --r: #ff003c;       /* danger red */
+    --o: #ff8c00;       /* warning orange */
+    --bg: #020a14;
+    --bg2: #040e1c;
+    --glass: rgba(0,212,255,.06);
+    --glow: 0 0 20px rgba(0,212,255,.25);
+  }
 
-        /* Glass panel */
-        .gp{
-            background:var(--glass);
-            backdrop-filter:blur(14px);
-            border:1px solid var(--border);
-            box-shadow:0 0 24px rgba(0,243,255,.04),inset 0 0 16px rgba(0,243,255,.02);
-            position:relative;
-        }
-        .gp::before{content:'';position:absolute;top:0;left:0;width:8px;height:8px;border-top:2px solid var(--c);border-left:2px solid var(--c)}
-        .gp::after{content:'';position:absolute;bottom:0;right:0;width:8px;height:8px;border-bottom:2px solid var(--c);border-right:2px solid var(--c)}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: #c8e8f0; font-family: 'Exo 2', sans-serif; }
 
-        /* Scanlines */
-        .scan{position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.2) 50%);background-size:100% 4px;pointer-events:none;z-index:9999;opacity:.55}
+  /* ── Scanline overlay ── */
+  body::before {
+    content:''; position:fixed; inset:0; z-index:9999; pointer-events:none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px);
+  }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:rgba(0,243,255,.25)}
+  /* ── Grid background ── */
+  body::after {
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridShift 20s linear infinite;
+  }
+  @keyframes gridShift { to { background-position: 60px 60px; } }
 
-        /* Animations */
-        @keyframes cw{to{transform:rotate(360deg)}}
-        @keyframes ccw{to{transform:rotate(-360deg)}}
-        @keyframes blink{0%,100%{opacity:.15}50%{opacity:1}}
-        @keyframes wake-ring{0%,100%{box-shadow:0 0 0 0 rgba(0,243,255,.6)}60%{box-shadow:0 0 0 14px rgba(0,243,255,0)}}
-        @keyframes cmd-ring{0%,100%{box-shadow:0 0 0 0 rgba(255,0,60,.7)}60%{box-shadow:0 0 0 14px rgba(255,0,60,0)}}
-        @keyframes speak-ring{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,.6)}60%{box-shadow:0 0 0 10px rgba(0,255,136,0)}}
-        @keyframes spawn-flash{0%,100%{background:rgba(0,255,136,.05)}50%{background:rgba(0,255,136,.15)}}
-        @keyframes slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  /* ── Glass panels ── */
+  .panel {
+    background: linear-gradient(135deg, rgba(0,212,255,.05), rgba(0,0,0,.4));
+    border: 1px solid rgba(0,212,255,.15);
+    backdrop-filter: blur(8px);
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .panel::before {
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    background: linear-gradient(135deg, rgba(0,212,255,.06) 0%, transparent 50%);
+    pointer-events:none;
+  }
+  .panel-purple { border-color: rgba(189,0,255,.2); background: linear-gradient(135deg, rgba(189,0,255,.05), rgba(0,0,0,.4)); }
+  .panel-purple::before { background: linear-gradient(135deg, rgba(189,0,255,.06) 0%, transparent 50%); }
+  .panel-green  { border-color: rgba(0,255,157,.2); background: linear-gradient(135deg, rgba(0,255,157,.04), rgba(0,0,0,.4)); }
+  .panel-green::before  { background: linear-gradient(135deg, rgba(0,255,157,.05) 0%, transparent 50%); }
 
-        .spin-cw {animation:cw 18s linear infinite}
-        .spin-ccw{animation:ccw 24s linear infinite}
-        .blink    {animation:blink 2s ease-in-out infinite}
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(0,212,255,.1);
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px; letter-spacing: .2em; color: rgba(0,212,255,.7);
+    text-transform: uppercase;
+  }
+  .panel-header .dot { width:6px; height:6px; border-radius:50%; background:var(--c); box-shadow:0 0 6px var(--c); }
+  .panel-header.green  { border-color:rgba(0,255,157,.1); color:rgba(0,255,157,.7); }
+  .panel-header.green  .dot { background:var(--g); box-shadow:0 0 6px var(--g); }
+  .panel-header.purple { border-color:rgba(189,0,255,.15); color:rgba(189,0,255,.7); }
+  .panel-header.purple .dot { background:var(--p); box-shadow:0 0 6px var(--p); }
 
-        /* Mic states */
-        #mic-btn.wake {animation:wake-ring 2s infinite;border-color:rgba(0,243,255,.5)!important;color:rgba(0,243,255,.5)!important}
-        #mic-btn.cmd  {animation:cmd-ring .8s infinite;border-color:var(--cr)!important;color:var(--cr)!important}
-        #mic-btn.speak{animation:speak-ring .5s infinite;border-color:var(--cg)!important;color:var(--cg)!important}
+  /* ── HUD text styles ── */
+  .orb  { font-family: 'Orbitron', monospace; }
+  .mono { font-family: 'Share Tech Mono', monospace; }
 
-        /* Agent card */
-        .agent-card{
-            background:rgba(0,255,136,.04);
-            border:1px solid rgba(0,255,136,.2);
-            border-radius:4px;padding:8px 10px;
-            animation:slide-in .3s ease;
-        }
-        .agent-card.running {border-color:rgba(0,255,136,.3)}
-        .agent-card.killed  {border-color:rgba(255,0,60,.25);background:rgba(255,0,60,.03)}
-        .agent-card.completed{border-color:rgba(0,243,255,.2);background:rgba(0,243,255,.03)}
-        .agent-card.failed  {border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.03)}
-        .agent-card.spawning{animation:spawn-flash .5s infinite;border-color:rgba(0,255,136,.4)}
+  /* ── Glow effects ── */
+  .glow-c { text-shadow: 0 0 12px var(--c), 0 0 24px rgba(0,212,255,.4); }
+  .glow-g { text-shadow: 0 0 12px var(--g), 0 0 24px rgba(0,255,157,.4); }
+  .glow-p { text-shadow: 0 0 12px var(--p), 0 0 24px rgba(189,0,255,.4); }
 
-        /* Chat bubble */
-        .chat-user{color:var(--c);border-left:2px solid rgba(0,243,255,.5)}
-        .chat-ai  {color:rgba(0,243,255,.8);border-left:2px solid rgba(0,243,255,.2)}
-        .chat-sys {color:rgba(0,243,255,.4);border-left:2px solid rgba(0,243,255,.1)}
-        .chat-err {color:var(--cr);border-left:2px solid rgba(255,0,60,.4)}
-        .chat-agent{color:var(--cg);border-left:2px solid rgba(0,255,136,.4)}
-        .chat-rewrite{color:var(--cy);border-left:2px solid rgba(245,158,11,.4)}
+  /* ── Core orb canvas ── */
+  #orb-canvas { position:absolute; inset:0; width:100%; height:100%; }
 
-        /* Status badge */
-        .badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:1px 5px;border-radius:2px}
-        .badge-run{background:rgba(0,255,136,.15);color:var(--cg);border:1px solid rgba(0,255,136,.3)}
-        .badge-kill{background:rgba(255,0,60,.1);color:var(--cr);border:1px solid rgba(255,0,60,.3)}
-        .badge-done{background:rgba(0,243,255,.1);color:var(--c);border:1px solid rgba(0,243,255,.2)}
-        .badge-fail{background:rgba(245,158,11,.1);color:var(--cy);border:1px solid rgba(245,158,11,.3)}
+  /* ── Chat ── */
+  #chat-log {
+    flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;
+    scroll-behavior:smooth;
+  }
+  #chat-log::-webkit-scrollbar { width:4px; }
+  #chat-log::-webkit-scrollbar-track { background: transparent; }
+  #chat-log::-webkit-scrollbar-thumb { background: rgba(0,212,255,.25); border-radius:2px; }
 
-        /* HUD bar */
-        .hud-bar{height:6px;background:rgba(0,243,255,.08);border-radius:3px;overflow:hidden;position:relative}
-        .hud-fill{height:100%;border-radius:3px;transition:width .5s ease}
+  .msg {
+    max-width: 86%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    position: relative;
+    animation: msgIn .25s ease;
+  }
+  @keyframes msgIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 
-        /* Input focus */
-        #chat-input:focus{outline:none;caret-color:var(--c)}
-        select.sel{background:rgba(0,243,255,.05);border:1px solid rgba(0,243,255,.2);color:var(--c);font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 6px;border-radius:2px;outline:none}
-        select.sel option{background:#020610}
+  .msg-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(0,212,255,.07));
+    border: 1px solid rgba(0,212,255,.3);
+    color: #d0f0ff;
+  }
+  .msg-user::after {
+    content:''; position:absolute; bottom:10px; right:-6px;
+    border: 6px solid transparent;
+    border-left-color: rgba(0,212,255,.3);
+  }
 
-        /* Tooltip */
-        [title]{cursor:pointer}
-    </style>
+  .msg-ai {
+    align-self: flex-start;
+    background: linear-gradient(135deg, rgba(189,0,255,.1), rgba(0,0,0,.3));
+    border: 1px solid rgba(189,0,255,.25);
+    color: #e8d8ff;
+  }
+  .msg-ai::after {
+    content:''; position:absolute; bottom:10px; left:-6px;
+    border: 6px solid transparent;
+    border-right-color: rgba(189,0,255,.25);
+  }
+
+  .msg-sys {
+    align-self: center;
+    background: rgba(0,212,255,.05);
+    border: 1px solid rgba(0,212,255,.12);
+    color: rgba(0,212,255,.5);
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing:.08em;
+    border-radius: 6px;
+    padding: 4px 10px;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .msg-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: .15em;
+    margin-bottom: 4px;
+    opacity: .6;
+  }
+
+  /* ── Typing indicator ── */
+  .typing-dot { width:6px; height:6px; border-radius:50%; background:var(--p); animation: blink 1.2s infinite; }
+  .typing-dot:nth-child(2) { animation-delay:.2s; }
+  .typing-dot:nth-child(3) { animation-delay:.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  /* ── Input bar ── */
+  #input-bar {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(0,212,255,.1);
+    display: flex; gap: 8px; align-items: center;
+    background: linear-gradient(0deg, rgba(0,0,0,.4), transparent);
+  }
+  #msg-input {
+    flex:1; background: rgba(0,212,255,.06); border: 1px solid rgba(0,212,255,.2);
+    border-radius: 8px; padding: 10px 14px; color: #c8e8f0; font-size:13px;
+    font-family:'Exo 2',sans-serif; outline:none; resize:none; min-height:42px; max-height:100px;
+    transition: border-color .2s;
+  }
+  #msg-input:focus { border-color: rgba(0,212,255,.5); box-shadow: 0 0 0 2px rgba(0,212,255,.08); }
+  #msg-input::placeholder { color: rgba(0,212,255,.25); }
+
+  .btn-icon {
+    width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    border:1px solid; cursor:pointer; transition:.2s; font-size:14px; flex-shrink:0;
+  }
+  #mic-btn  { border-color:rgba(0,255,157,.3); color:rgba(0,255,157,.7); background:rgba(0,255,157,.06); }
+  #mic-btn:hover  { background:rgba(0,255,157,.14); color:var(--g); }
+  #mic-btn.active { background:rgba(0,255,157,.2); color:var(--g); box-shadow:0 0 12px rgba(0,255,157,.4); animation:micPulse .8s infinite; }
+  @keyframes micPulse { 50%{ box-shadow:0 0 20px rgba(0,255,157,.6); } }
+  #send-btn { border-color:rgba(0,212,255,.3); color:rgba(0,212,255,.7); background:rgba(0,212,255,.06); }
+  #send-btn:hover { background:rgba(0,212,255,.14); color:var(--c); }
+  #send-btn:active { transform:scale(.95); }
+
+  /* ── Metric bars ── */
+  .metric-bar {
+    height: 4px; border-radius: 2px; background: rgba(255,255,255,.07); overflow:hidden;
+  }
+  .metric-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--c), rgba(0,212,255,.5));
+    transition: width .5s ease;
+  }
+  .metric-bar-fill.warn  { background: linear-gradient(90deg, var(--o), rgba(255,140,0,.5)); }
+  .metric-bar-fill.crit  { background: linear-gradient(90deg, var(--r), rgba(255,0,60,.5)); }
+
+  /* ── Stat boxes ── */
+  .stat-box {
+    background: rgba(0,212,255,.05); border:1px solid rgba(0,212,255,.1);
+    border-radius:8px; padding:8px 10px; text-align:center;
+  }
+  .stat-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:var(--c); }
+  .stat-lbl { font-family:'Share Tech Mono',monospace; font-size:9px; color:rgba(0,212,255,.4); margin-top:2px; letter-spacing:.12em; }
+
+  /* ── Log entries ── */
+  .log-entry { font-family:'Share Tech Mono',monospace; font-size:10px; padding:3px 0; border-bottom:1px solid rgba(0,212,255,.05); }
+  .log-ok   { color:rgba(0,255,157,.7); }
+  .log-warn { color:rgba(255,140,0,.8); }
+  .log-err  { color:rgba(255,0,60,.8); }
+  .log-info { color:rgba(0,212,255,.5); }
+
+  /* ── Agent chip ── */
+  .agent-chip {
+    background: rgba(0,255,157,.06); border:1px solid rgba(0,255,157,.2); border-radius:6px;
+    padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:11px;
+  }
+  .agent-chip .status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .agent-chip .status-dot.run  { background:var(--g); box-shadow:0 0 6px var(--g); animation:statusPulse 1.5s infinite; }
+  .agent-chip .status-dot.done { background:rgba(0,212,255,.5); }
+  .agent-chip .status-dot.fail { background:var(--r); }
+  @keyframes statusPulse { 50%{ opacity:.4; } }
+
+  /* ── Animations ── */
+  .spin-slow  { animation: spin 12s linear infinite; }
+  .spin-fast  { animation: spin 4s linear infinite; }
+  .spin-rev   { animation: spin 8s linear infinite reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pulse-ring {
+    position:absolute; inset:-8px; border-radius:50%;
+    border: 1px solid rgba(0,212,255,.3);
+    animation: pulseRing 2.5s ease-out infinite;
+  }
+  .pulse-ring:nth-child(2) { animation-delay:.8s; }
+  .pulse-ring:nth-child(3) { animation-delay:1.6s; }
+  @keyframes pulseRing { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(1.5);opacity:0} }
+
+  /* ── Status indicator ── */
+  #status-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 10px; border-radius:20px;
+    font-family:'Orbitron',monospace; font-size:9px; letter-spacing:.15em;
+    border: 1px solid rgba(255,140,0,.4); background:rgba(255,140,0,.08); color:rgba(255,140,0,.8);
+    transition:.4s;
+  }
+  #status-pill.online { border-color:rgba(0,255,157,.4); background:rgba(0,255,157,.08); color:rgba(0,255,157,.8); }
+  #status-pill .blink-dot { width:5px; height:5px; border-radius:50%; background:currentColor; animation:blink 1.2s infinite; }
+
+  /* ── Wake word indicator ── */
+  #wake-bar { height:2px; background:transparent; transition:.3s; }
+  #wake-bar.active { background:linear-gradient(90deg,transparent,var(--g),transparent); box-shadow:0 0 8px var(--g); }
+
+  /* ── Model selector ── */
+  #model-sel {
+    background:rgba(0,212,255,.05); border:1px solid rgba(0,212,255,.15);
+    border-radius:6px; padding:4px 8px; color:rgba(0,212,255,.7); font-size:11px;
+    font-family:'Share Tech Mono',monospace; outline:none; cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+  }
+
+  /* ── Mobile ── */
+  @media (max-width:768px) {
+    #sidebar-left, #sidebar-right { display:none; }
+    #main-col { flex:1 !important; }
+    .msg { max-width:96%; }
+  }
+
+  /* ── Corner decorations ── */
+  .corner-tl::before, .corner-tr::before, .corner-bl::before, .corner-br::before {
+    content:''; position:absolute; width:12px; height:12px;
+    border-color:rgba(0,212,255,.4); border-style:solid;
+  }
+  .corner-tl::before { top:0;left:0; border-width:2px 0 0 2px; }
+  .corner-tr::before { top:0;right:0; border-width:2px 2px 0 0; }
+  .corner-bl::after  { content:''; position:absolute; bottom:0;left:0; width:12px; height:12px; border:2px solid rgba(0,212,255,.4); border-width:0 0 2px 2px; }
+  .corner-br::after  { content:''; position:absolute; bottom:0;right:0; width:12px; height:12px; border:2px solid rgba(0,212,255,.4); border-width:0 2px 2px 0; }
+
+  /* ── Scrollbar global ── */
+  ::-webkit-scrollbar { width:3px; height:3px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(0,212,255,.2); border-radius:2px; }
+</style>
 </head>
-<body class="flex flex-col h-full text-sm select-none relative">
-<div class="scan"></div>
-<canvas id="bgc" class="absolute inset-0 w-full h-full pointer-events-none opacity-25"></canvas>
+<body class="relative z-10">
 
-<!-- ═══ HEADER ═══════════════════════════════════════════════════════════════ -->
-<header class="flex items-center justify-between px-5 py-3 z-20 border-b border-[#00f3ff]/10">
+<!-- ═══════════════════════════════════════════════════════ HEADER -->
+<header class="relative z-20 flex items-center justify-between px-4 py-2.5 border-b border-[rgba(0,212,255,.12)]"
+        style="background:linear-gradient(180deg,rgba(0,20,40,.95),rgba(2,10,20,.9))">
 
-    <!-- Logo -->
-    <div class="flex items-center gap-4">
-        <div class="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
-            <div class="absolute inset-0 rounded-full border-2 border-dashed border-[#00f3ff]/35 spin-cw"></div>
-            <div class="absolute inset-[6px] rounded-full border border-[#00f3ff]/55 spin-ccw"></div>
-            <div id="core-eye" class="w-5 h-5 rounded-full bg-[#00f3ff]/20 shadow-[0_0_12px_#00f3ff] blink"></div>
-        </div>
-        <div>
-            <h1 class="orb text-2xl font-black tracking-[.18em] text-[#00f3ff] drop-shadow-[0_0_8px_rgba(0,243,255,.5)]">
-                J.A.R.V.I.S.
-                <span class="text-[11px] font-normal border border-[#00f3ff]/30 px-2 py-0.5 rounded ml-2 text-[#00f3ff]/60">v2.2</span>
-            </h1>
-            <div class="mono text-[10px] tracking-[.2em] flex items-center gap-3 mt-0.5" id="srv-ind">
-                <span class="text-[#00f3ff]/50">BACKEND: POLLING...</span>
-                <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span>
-            </div>
-            <!-- Device compat badge -->
-            <div id="compat-badge" style="display:none" class="mono text-[9px] text-[#00f3ff]/30 tracking-widest mt-0.5"></div>
-            <!-- Offline / ARM32 notice -->
-            <div id="offline-notice" class="hidden mono text-[9px] text-yellow-400/70 tracking-widest mt-0.5"></div>
-        </div>
+  <!-- Logo -->
+  <div class="flex items-center gap-3">
+    <div class="relative w-10 h-10 flex items-center justify-center flex-shrink-0">
+      <div class="absolute inset-0 rounded-full border border-dashed border-[rgba(0,212,255,.3)] spin-slow"></div>
+      <div class="absolute inset-[3px] rounded-full border border-[rgba(0,212,255,.4)] spin-rev"></div>
+      <div id="core-dot" class="w-3 h-3 rounded-full bg-[var(--c)] shadow-[0_0_10px_var(--c)]"
+           style="animation:blink 2s ease-in-out infinite"></div>
     </div>
-
-    <!-- Center strip: agent count + rewrite history + MEMORY -->
-    <div class="flex items-center gap-6 mono text-[10px] text-[#00f3ff]/50">
-        <div class="flex items-center gap-2">
-            <i class="fas fa-robot text-[#00ff88]/60"></i>
-            <span>SUB-AGENTS: </span><span id="hdr-agent-count" class="text-[#00ff88] font-bold">0</span>
-        </div>
-        <div class="flex items-center gap-2">
-            <i class="fas fa-code text-[#f59e0b]/60"></i>
-            <span>REWRITES: </span><span id="hdr-rewrite-count" class="text-[#f59e0b] font-bold">0</span>
-        </div>
-        <div class="flex items-center gap-2 cursor-pointer hover:text-[#00f3ff]" onclick="showMemoryPanel()" title="Click to manage memory">
-            <i class="fas fa-brain text-[#a78bfa]/70"></i>
-            <span>MEMORY: </span><span id="hdr-mem-count" class="text-[#a78bfa] font-bold">0</span>
-        </div>
-        <div id="rewrite-indicator" class="hidden px-2 py-0.5 rounded text-[#f59e0b] border border-[#f59e0b]/40 badge text-[9px]">
-            <i class="fas fa-sync fa-spin mr-1"></i>SELF-REWRITING
-        </div>
-        <div id="spawn-indicator" class="hidden px-2 py-0.5 rounded text-[#00ff88] border border-[#00ff88]/40 badge text-[9px]">
-            <i class="fas fa-circle-notch fa-spin mr-1"></i>SPAWNING AGENT
-        </div>
+    <div>
+      <div class="orb text-lg font-black tracking-[.25em] text-[var(--c)] glow-c leading-none">J.A.R.V.I.S.</div>
+      <div class="mono text-[9px] tracking-[.2em] text-[rgba(0,212,255,.35)] mt-0.5">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
     </div>
+  </div>
 
-    <!-- Clock -->
-    <div class="text-right gp px-5 py-1.5 rounded-bl-2xl">
-        <div id="clk" class="orb text-xl font-bold text-[#00f3ff] tracking-widest">00:00:00</div>
-        <div id="clkd" class="mono text-[10px] tracking-widest text-[#00f3ff]/50 uppercase">---</div>
+  <!-- Center metrics -->
+  <div class="hidden md:flex items-center gap-5 mono text-[10px]">
+    <div class="flex items-center gap-2 text-[rgba(0,255,157,.6)]">
+      <i class="fas fa-robot text-xs"></i>
+      <span>AGENTS </span><span id="hdr-agents" class="text-[var(--g)] font-bold ml-1">0</span>
     </div>
+    <div class="flex items-center gap-2 text-[rgba(255,140,0,.6)]">
+      <i class="fas fa-code text-xs"></i>
+      <span>REWRITES </span><span id="hdr-rewrites" class="text-[var(--o)] font-bold ml-1">0</span>
+    </div>
+    <div class="flex items-center gap-2 text-[rgba(189,0,255,.6)] cursor-pointer hover:text-[var(--p)]"
+         onclick="showMemoryPanel()" title="Memory">
+      <i class="fas fa-brain text-xs"></i>
+      <span>MEM </span><span id="hdr-mem" class="text-[var(--p)] font-bold ml-1">0</span>
+    </div>
+  </div>
+
+  <!-- Right: status + clock -->
+  <div class="flex items-center gap-4">
+    <div id="status-pill">
+      <span class="blink-dot"></span>
+      <span id="status-txt">CONNECTING</span>
+    </div>
+    <div class="text-right hidden sm:block">
+      <div id="clk" class="orb text-sm font-bold text-[var(--c)] tracking-widest leading-none">00:00:00</div>
+      <div id="clkd" class="mono text-[9px] text-[rgba(0,212,255,.35)] mt-0.5"></div>
+    </div>
+  </div>
 </header>
+<div id="wake-bar"></div>
 
-<!-- ═══ MAIN GRID ═══════════════════════════════════════════════════════════ -->
-<main class="flex-1 grid grid-cols-12 gap-3 p-3 z-10 overflow-hidden min-h-0">
+<!-- ═══════════════════════════════════════════════════════ MAIN LAYOUT -->
+<div class="flex gap-0" style="height:calc(100vh - 52px); position:relative; z-index:10">
 
-    <!-- ── LEFT: Agent Commander ─────────────────────────────────────────── -->
-    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
+  <!-- ────────────────────── LEFT SIDEBAR ── -->
+  <aside id="sidebar-left" class="w-[240px] flex flex-col gap-3 p-3 border-r border-[rgba(0,212,255,.08)] overflow-y-auto flex-shrink-0"
+         style="background:rgba(2,10,20,.6)">
 
-        <!-- Model + Stats strip -->
-        <div class="gp px-4 py-2 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 mono text-[10px]">
-                <span class="text-[#00f3ff]/50">MODEL</span>
-                <select id="model-sel" class="sel" onchange="onModelChange(this.value)">
-                    <option value="">LOADING...</option>
-                </select>
-            </div>
-            <div class="flex items-center gap-3 mono text-[10px] text-[#00f3ff]/50">
-                <span>CPU <span id="mini-cpu" class="text-[#00f3ff]">--%</span></span>
-                <span>RAM <span id="mini-ram" class="text-[#00f3ff]">--%</span></span>
-            </div>
+    <!-- Core orb -->
+    <div class="panel relative overflow-hidden" style="height:180px">
+      <canvas id="orb-canvas" width="240" height="180"></canvas>
+      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div id="core-text" class="orb text-xs font-bold text-[var(--c)] tracking-widest glow-c">STANDBY</div>
+        <div id="core-sub"  class="mono text-[9px] text-[rgba(0,212,255,.4)] mt-1">AWAITING INPUT</div>
+      </div>
+    </div>
+
+    <!-- RAM / CPU -->
+    <div class="panel p-3 space-y-3">
+      <div class="panel-header" style="padding:0 0 6px; border:none; margin-bottom:0">
+        <div class="dot"></div>SYSTEM
+      </div>
+      <div>
+        <div class="flex justify-between mono text-[10px] mb-1">
+          <span class="text-[rgba(0,212,255,.5)]">CPU</span>
+          <span id="cpu-pct" class="text-[var(--c)]">0%</span>
         </div>
-
-        <!-- Agent Commander panel -->
-        <div class="gp p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div class="flex justify-between items-center border-b border-[#00ff88]/20 pb-2 mb-3 flex-shrink-0">
-                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00ff88]">
-                    <i class="fas fa-robot"></i> AGENT COMMANDER
-                </h2>
-                <div class="flex items-center gap-2">
-                    <span id="ac-count" class="badge badge-run">0 ACTIVE</span>
-                    <button onclick="refreshAgents()" title="Refresh" class="text-[#00ff88]/40 hover:text-[#00ff88] mono text-[10px]"><i class="fas fa-sync"></i></button>
-                </div>
-            </div>
-
-            <!-- Quick spawn -->
-            <div class="flex-shrink-0 mb-3">
-                <form onsubmit="quickSpawn(event)" class="flex gap-2">
-                    <input id="spawn-input" type="text" placeholder='task description...'
-                        class="flex-1 bg-[#00ff88]/5 border border-[#00ff88]/20 text-[#00ff88] mono text-[10px] px-2 py-1 rounded-sm placeholder-[#00ff88]/25 focus:outline-none focus:border-[#00ff88]/50">
-                    <button type="submit" class="bg-[#00ff88]/10 border border-[#00ff88]/30 text-[#00ff88] mono text-[10px] px-3 py-1 rounded-sm hover:bg-[#00ff88]/20">
-                        <i class="fas fa-plus"></i> SPAWN
-                    </button>
-                </form>
-            </div>
-
-            <!-- Agent cards list -->
-            <div id="agent-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                <div class="mono text-[10px] text-[#00ff88]/30 italic text-center mt-4">
-                    No sub-agents running.<br>Say "spawn agent to [task]" or use the form above.
-                </div>
-            </div>
+        <div class="metric-bar"><div id="cpu-bar" class="metric-bar-fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between mono text-[10px] mb-1">
+          <span class="text-[rgba(0,212,255,.5)]">RAM</span>
+          <span id="ram-pct" class="text-[var(--c)]">0%</span>
         </div>
-    </aside>
-
-    <!-- ── CENTER: Core + Chat ───────────────────────────────────────────── -->
-    <section class="col-span-6 flex flex-col min-h-0 gap-3">
-
-        <!-- Core orb + status -->
-        <div class="flex-1 relative flex items-center justify-center min-h-0">
-            <div class="absolute w-[72%] h-[72%] rounded-full border border-[#00f3ff]/08 spin-cw pointer-events-none"></div>
-            <div class="absolute w-[55%] h-[55%] rounded-full border border-[#00f3ff]/05 spin-ccw pointer-events-none"></div>
-            <canvas id="core-canvas" class="absolute w-full h-full z-10"></canvas>
-
-            <!-- Status overlay -->
-            <div class="absolute z-20 flex flex-col items-center pointer-events-none text-center px-4">
-                <div id="core-txt" class="orb tracking-[.3em] text-[#00f3ff]/40 text-xs mb-1">OFFLINE</div>
-                <div id="wake-txt" class="mono text-[10px] text-[#00f3ff]/30 tracking-widest">SAY "HEY JARVIS" TO ACTIVATE</div>
-                <div id="transcript-preview" class="mono text-[11px] text-[#00f3ff]/50 mt-2 italic min-h-4"></div>
-            </div>
+        <div class="metric-bar"><div id="ram-bar" class="metric-bar-fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between mono text-[10px] mb-1">
+          <span class="text-[rgba(0,212,255,.5)]">STORAGE</span>
+          <span id="disk-pct" class="text-[var(--c)]">0%</span>
         </div>
-
-        <!-- Chat log (scrollable) -->
-        <div class="gp flex flex-col flex-shrink-0 overflow-hidden" style="height:38%">
-            <div class="border-b border-[#00f3ff]/15 px-4 py-2 flex justify-between items-center flex-shrink-0">
-                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-comments"></i> COMM LOG
-                </h2>
-                <button onclick="clearChat()" class="text-[#00f3ff]/30 hover:text-[#ff003c] mono text-[10px]" title="Clear"><i class="fas fa-trash-alt"></i></button>
-            </div>
-            <div id="chat-log" class="flex-1 overflow-y-auto px-4 py-2 space-y-2 mono text-[11px]">
-                <div class="chat-sys px-2 py-1">System initializing...</div>
-            </div>
+        <div class="metric-bar"><div id="disk-bar" class="metric-bar-fill" style="width:0%"></div></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-1">
+        <div class="stat-box">
+          <div id="temp-val" class="stat-val text-sm">--°</div>
+          <div class="stat-lbl">TEMP</div>
         </div>
-
-        <!-- Voice + Input bar -->
-        <div class="gp px-4 py-3 flex-shrink-0 relative">
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2/5 h-[1px] bg-[#00f3ff] shadow-[0_0_8px_#00f3ff]"></div>
-            <div class="flex items-center gap-4">
-                <!-- Mic -->
-                <button id="mic-btn" onclick="toggleListen()"
-                    class="w-14 h-14 flex-shrink-0 rounded-full bg-[#002233] border-2 border-[#00f3ff]/25
-                           flex items-center justify-center text-xl text-[#00f3ff]/40
-                           hover:border-[#00f3ff]/60 hover:text-[#00f3ff]/70 transition-all">
-                    <i id="mic-icon" class="fas fa-microphone"></i>
-                </button>
-                <!-- Input -->
-                <form id="chat-form" onsubmit="submitChat(event)" class="flex-1 relative">
-                    <input id="chat-input" type="text"
-                        placeholder='Ask JARVIS... or say "spawn agent to monitor battery"'
-                        class="w-full bg-transparent text-[#00f3ff] orb text-sm tracking-wide placeholder-[#00f3ff]/25 focus:outline-none">
-                    <button type="submit" class="absolute right-0 top-1/2 -translate-y-1/2 text-[#00f3ff]/40 hover:text-[#00f3ff]">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </form>
-            </div>
+        <div class="stat-box">
+          <div id="bat-val" class="stat-val text-sm">--%</div>
+          <div class="stat-lbl">BATTERY</div>
         </div>
-    </section>
+      </div>
+    </div>
 
-    <!-- ── RIGHT: Hardware + Logs ───────────────────────────────────────── -->
-    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
+    <!-- Model selector -->
+    <div class="panel p-3">
+      <div class="panel-header" style="padding:0 0 8px; border:none">
+        <div class="dot"></div>MODEL
+      </div>
+      <select id="model-sel" class="w-full">
+        <option value="">Loading...</option>
+      </select>
+      <div id="compat-info" class="mono text-[9px] text-[rgba(0,212,255,.3)] mt-2 leading-relaxed"></div>
+    </div>
 
-        <!-- Hardware telemetry -->
-        <div class="gp p-4 flex-shrink-0">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/15 pb-2 mb-3">
-                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-microchip"></i> HARDWARE
-                </h2>
-                <button onclick="runDeviceScan()" class="mono text-[9px] text-[#00f3ff]/40 hover:text-[#00f3ff]" title="Full scan">
-                    <i class="fas fa-search"></i> SCAN
-                </button>
-            </div>
-            <div class="space-y-3 mono text-[10px]">
-                <!-- CPU -->
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
-                        <span>CPU</span><span id="hw-cpu" class="text-[#00f3ff]/40">—</span>
-                    </div>
-                    <div class="hud-bar"><div id="bar-cpu" class="hud-fill bg-[#00f3ff]" style="width:0%"></div></div>
-                </div>
-                <!-- RAM -->
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
-                        <span>RAM</span><span id="hw-ram" class="text-[#00f3ff]/40">—</span>
-                    </div>
-                    <div class="hud-bar"><div id="bar-ram" class="hud-fill bg-[#00f3ff]" style="width:0%"></div></div>
-                </div>
-                <!-- Battery -->
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
-                        <span>BATTERY</span><span id="hw-bat" class="text-[#00f3ff]/40">—</span>
-                    </div>
-                    <div class="hud-bar"><div id="bar-bat" class="hud-fill bg-[#00ff88]" style="width:0%"></div></div>
-                </div>
-                <!-- GPU / Inference -->
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
-                        <span>INFERENCE</span><span id="hw-gpu" class="text-[#00f3ff]/40">—</span>
-                    </div>
-                    <div class="hud-bar"><div id="bar-gpu" class="hud-fill bg-[#f59e0b]" style="width:0%"></div></div>
-                </div>
-            </div>
-            <!-- Device info strip -->
-            <div id="device-strip" class="mt-3 pt-2 border-t border-[#00f3ff]/10 mono text-[9px] text-[#00f3ff]/35 space-y-0.5">
-                <div>—</div>
-            </div>
+    <!-- Syslog -->
+    <div class="panel flex-1 overflow-hidden flex flex-col" style="min-height:100px">
+      <div class="panel-header"><div class="dot"></div>SYSLOG</div>
+      <div id="syslog" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
+    </div>
+  </aside>
+
+  <!-- ────────────────────── CENTER (CHAT) ── -->
+  <main id="main-col" class="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div id="chat-log"></div>
+    <div id="typing-indicator" class="hidden px-4 pb-2">
+      <div class="msg msg-ai" style="padding:8px 14px; max-width:80px">
+        <div class="flex gap-1 items-center">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
         </div>
+      </div>
+    </div>
+    <div id="input-bar">
+      <button id="mic-btn" class="btn-icon" onclick="toggleMic()" title="Hold to speak / Say 'Hey Jarvis'">
+        <i class="fas fa-microphone"></i>
+      </button>
+      <textarea id="msg-input" placeholder="Talk to J.A.R.V.I.S. — or say 'Hey Jarvis'…" rows="1"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+      <button id="send-btn" class="btn-icon" onclick="sendMsg()" title="Send">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </main>
 
-        <!-- RAM guard badge -->
-        <div id="ram-guard" class="hidden gp px-3 py-2 border-[#ff003c]/40 text-center">
-            <div class="mono text-[10px] text-[#ff003c]"><i class="fas fa-exclamation-triangle"></i> RAM GUARD ACTIVE — CONTEXT TRIMMED</div>
-        </div>
+  <!-- ────────────────────── RIGHT SIDEBAR ── -->
+  <aside id="sidebar-right" class="w-[220px] flex flex-col gap-3 p-3 border-l border-[rgba(0,212,255,.08)] overflow-y-auto flex-shrink-0"
+         style="background:rgba(2,10,20,.6)">
 
-        <!-- System logs -->
-        <div class="gp p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/15 pb-2 mb-2 flex-shrink-0">
-                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-terminal"></i> SYS LOGS
-                </h2>
-            </div>
-            <div id="sys-log" class="flex-1 overflow-y-auto mono text-[10px] space-y-0.5 text-[#00f3ff]/55 pr-1"></div>
-        </div>
-    </aside>
-</main>
+    <!-- Sub-agents -->
+    <div class="panel panel-green flex flex-col" style="min-height:140px">
+      <div class="panel-header green"><div class="dot"></div>SUB-AGENTS</div>
+      <div id="agent-list" class="flex-1 p-2 space-y-1.5 overflow-y-auto">
+        <div class="mono text-[10px] text-[rgba(0,255,157,.25)] text-center pt-4">No agents running</div>
+      </div>
+      <div class="p-2 border-t border-[rgba(0,255,157,.1)]">
+        <button onclick="spawnAgent()" class="w-full py-1.5 rounded-md orb text-[9px] tracking-widest
+               border border-[rgba(0,255,157,.3)] text-[rgba(0,255,157,.6)] hover:bg-[rgba(0,255,157,.1)]
+               hover:text-[var(--g)] transition-all">
+          <i class="fas fa-plus mr-1"></i>SPAWN AGENT
+        </button>
+      </div>
+    </div>
 
-<!-- ═══ SCRIPTS ═══════════════════════════════════════════════════════════════ -->
+    <!-- Comm log -->
+    <div class="panel panel-purple flex-1 flex flex-col overflow-hidden">
+      <div class="panel-header purple"><div class="dot"></div>COMM LOG</div>
+      <div id="comm-log" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="panel p-3 space-y-2">
+      <div class="panel-header" style="padding:0 0 8px;border:none"><div class="dot"></div>ACTIONS</div>
+      <button onclick="sendMsg('run device scan')"
+              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(0,212,255,.2)]
+                     text-[rgba(0,212,255,.5)] hover:bg-[rgba(0,212,255,.08)] hover:text-[var(--c)] transition-all">
+        <i class="fas fa-microchip mr-1"></i>DEVICE SCAN
+      </button>
+      <button onclick="sendMsg('rewrite yourself to be faster')"
+              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(255,140,0,.2)]
+                     text-[rgba(255,140,0,.5)] hover:bg-[rgba(255,140,0,.08)] hover:text-[var(--o)] transition-all">
+        <i class="fas fa-sync mr-1"></i>SELF-REWRITE
+      </button>
+      <button onclick="showMemoryPanel()"
+              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(189,0,255,.25)]
+                     text-[rgba(189,0,255,.5)] hover:bg-[rgba(189,0,255,.08)] hover:text-[var(--p)] transition-all">
+        <i class="fas fa-brain mr-1"></i>MEMORY CORE
+      </button>
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ MEMORY MODAL -->
+<div id="mem-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="hideMemoryPanel()"></div>
+  <div class="relative panel panel-purple p-6 w-[360px] z-10 corner-tl corner-tr corner-bl corner-br"
+       style="background:rgba(5,2,20,.95)">
+    <h2 class="orb text-sm font-bold text-[var(--p)] tracking-widest mb-5 flex items-center gap-2">
+      <i class="fas fa-brain"></i> MEMORY CORE
+    </h2>
+    <div class="space-y-3 mb-5">
+      <div class="flex justify-between mono text-xs">
+        <span class="text-[rgba(0,212,255,.5)]">Saved messages</span>
+        <span id="modal-mem-count" class="text-[var(--p)] font-bold">—</span>
+      </div>
+      <div class="flex justify-between mono text-xs">
+        <span class="text-[rgba(0,212,255,.5)]">Profile name</span>
+        <span id="modal-profile-name" class="text-[var(--g)]">—</span>
+      </div>
+      <div id="modal-summary" class="mono text-[10px] text-[rgba(0,212,255,.35)] italic leading-relaxed p-2
+           border border-[rgba(189,0,255,.1)] rounded-md bg-[rgba(189,0,255,.03)]"></div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="refreshMemModal()"
+              class="flex-1 py-2 rounded mono text-[10px] border border-[rgba(0,212,255,.2)]
+                     text-[rgba(0,212,255,.5)] hover:bg-[rgba(0,212,255,.08)] transition-all">
+        <i class="fas fa-sync mr-1"></i>REFRESH
+      </button>
+      <button onclick="clearMemory()"
+              class="flex-1 py-2 rounded mono text-[10px] border border-[rgba(255,0,60,.25)]
+                     text-[rgba(255,0,60,.5)] hover:bg-[rgba(255,0,60,.08)] transition-all">
+        <i class="fas fa-trash mr-1"></i>CLEAR
+      </button>
+      <button onclick="hideMemoryPanel()"
+              class="px-4 py-2 rounded mono text-[10px] border border-[rgba(0,212,255,.15)]
+                     text-[rgba(0,212,255,.35)] hover:bg-[rgba(0,212,255,.05)] transition-all">
+        ESC
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
 <script>
-// ────────────────────────────────────────────────────────────────────
-// CONFIG
-// ────────────────────────────────────────────────────────────────────
-const BASE   = 'http://localhost:8000';
-const POLL   = 4000;
-const RAM_GUARD = 85;
-const WAKE_WORDS = ['hey jarvis','jarvis','hey j.a.r.v.i.s.'];
+// ── Config ────────────────────────────────────────────────────────────
+const BASE = 'http://localhost:8000';
+const POLL = 4000;
+const WAKE_WORDS = ['hey jarvis', 'jarvis', 'hey j.a.r.v.i.s.'];
+const TTS = { enabled: true, rate: 0.92, pitch: 0.8, volume: 1.0 };
 
-const TTS = {
-    enabled : true,
-    rate    : 0.92,
-    pitch   : 0.8,
-    volume  : 1.0,
-};
-
-// ── Device compatibility ──────────────────────────────────────────────
-let deviceCompat = {
-    low_ram: false, arm32: false, offline_mode: false,
-    recommended_model: 'llama3.2:1b', num_ctx: 2048, ram_mb: 4096
-};
+// ── State ─────────────────────────────────────────────────────────────
+let online = false, speaking = false, recognition = null;
+let history = [], model = '', rewriteCount = 0, memCount = 0;
+let userProfile = { name: 'Boss' };
+let deviceCompat = { low_ram: false, arm32: false, offline_mode: false, recommended_model: 'llama3.2:1b', num_ctx: 2048, ram_mb: 4096 };
 const SPEECH_AVAILABLE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-const TTS_AVAILABLE    = !!(window.speechSynthesis);
+const TTS_AVAILABLE = !!(window.speechSynthesis);
 
+// ── Clock ─────────────────────────────────────────────────────────────
+function tickClock() {
+  const n = new Date();
+  document.getElementById('clk').innerText = n.toLocaleTimeString('en',{hour12:false});
+  document.getElementById('clkd').innerText = n.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'}).toUpperCase();
+}
+setInterval(tickClock, 1000); tickClock();
+
+// ── Orb canvas ────────────────────────────────────────────────────────
+(function orbCanvas() {
+  const cvs = document.getElementById('orb-canvas');
+  if (!cvs) return;
+  const ctx = cvs.getContext('2d');
+  let particles = [], t = 0;
+  for (let i = 0; i < 35; i++) {
+    particles.push({ r: 30 + Math.random()*60, a: Math.random()*Math.PI*2, s: (.0003+Math.random()*.0008)*(Math.random()<.5?1:-1),
+      size: .8+Math.random()*2, c: Math.random() > .7 ? '#00ff9d' : '#00d4ff', alpha: .2+Math.random()*.6 });
+  }
+  function draw() {
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    const cx=cvs.width/2, cy=cvs.height/2;
+    // rings
+    [50,70,90].forEach((r,i)=>{
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(0,212,255,${.04+i*.02})`; ctx.lineWidth=1; ctx.stroke();
+    });
+    // rotating dashed ring
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.2);
+    ctx.beginPath(); ctx.arc(0,0,62,0,Math.PI*2);
+    ctx.setLineDash([4,8]); ctx.strokeStyle='rgba(0,212,255,.2)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore();
+    // particles
+    particles.forEach(p => {
+      p.a += p.s;
+      const x = cx + Math.cos(p.a)*p.r, y = cy + Math.sin(p.a)*p.r;
+      ctx.beginPath(); ctx.arc(x,y,p.size,0,Math.PI*2);
+      ctx.fillStyle = p.c.replace(')',`,${p.alpha})`).replace('rgb','rgba'); ctx.fill();
+    });
+    // core glow
+    const g = ctx.createRadialGradient(cx,cy,0,cx,cy,28);
+    g.addColorStop(0,'rgba(0,212,255,.25)'); g.addColorStop(1,'rgba(0,212,255,0)');
+    ctx.beginPath(); ctx.arc(cx,cy,28,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+    // center dot
+    ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,212,255,.9)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+    t++; requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── Syslog ────────────────────────────────────────────────────────────
+function sysLog(msg, type='info') {
+  const el = document.getElementById('syslog');
+  const d = document.createElement('div');
+  d.className = `log-entry log-${type}`;
+  const ts = new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  d.textContent = `[${ts}] ${msg}`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+  if (el.children.length > 100) el.removeChild(el.children[0]);
+}
+
+// ── Comm log ──────────────────────────────────────────────────────────
+function commLog(from, msg, type='info') {
+  const el = document.getElementById('comm-log');
+  const d = document.createElement('div');
+  const colors = {info:'rgba(0,212,255,.5)', ok:'rgba(0,255,157,.6)', warn:'rgba(255,140,0,.6)', err:'rgba(255,0,60,.6)', sys:'rgba(189,0,255,.5)'};
+  d.style.cssText = `font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 0;border-bottom:1px solid rgba(0,212,255,.05);color:${colors[type]||colors.info}`;
+  d.innerHTML = `<span style="opacity:.5">[${from}]</span> ${msg}`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+  if (el.children.length > 60) el.removeChild(el.children[0]);
+}
+
+// ── Core text ─────────────────────────────────────────────────────────
+function setCoreText(main, sub) {
+  document.getElementById('core-text').textContent = main || 'READY';
+  if (sub !== undefined) document.getElementById('core-sub').textContent = sub || '';
+}
+
+// ── Chat messages ─────────────────────────────────────────────────────
+function addMsg(role, text) {
+  const log = document.getElementById('chat-log');
+  const wrap = document.createElement('div');
+  const cls = role === 'user' ? 'msg msg-user' : role === 'sys' ? 'msg msg-sys' : 'msg msg-ai';
+  wrap.className = cls;
+
+  if (role !== 'sys') {
+    const lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.style.color = role === 'user' ? 'rgba(0,212,255,.5)' : 'rgba(189,0,255,.5)';
+    lbl.textContent = role === 'user' ? '▸ YOU' : '▸ J.A.R.V.I.S.';
+    wrap.appendChild(lbl);
+  }
+
+  const body = document.createElement('div');
+  body.textContent = text;
+  wrap.appendChild(body);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  return wrap;
+}
+
+function showTyping(show) {
+  document.getElementById('typing-indicator').classList.toggle('hidden', !show);
+  const log = document.getElementById('chat-log');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── TTS ───────────────────────────────────────────────────────────────
+function speak(text) {
+  if (!TTS.enabled || !TTS_AVAILABLE) return;
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/[#*`_~\[\]()>]/g,'').replace(/\n/g,' ').slice(0,300);
+  const u = new SpeechSynthesisUtterance(clean);
+  u.rate = TTS.rate; u.pitch = TTS.pitch; u.volume = TTS.volume;
+  window.speechSynthesis.speak(u);
+}
+
+// ── Slang expander ────────────────────────────────────────────────────
+const SLANG = {
+  'yk':'you know','rn':'right now','fr':'for real','ngl':'not gonna lie','tbh':'to be honest',
+  'imo':'in my opinion','imho':'in my honest opinion','lmk':'let me know','asap':'as soon as possible',
+  'afk':'away from keyboard','brb':'be right back','idk':'I don\'t know','iirc':'if I recall correctly',
+  'lol':'laughing out loud','btw':'by the way','afaik':'as far as I know','dm':'direct message',
+  'irl':'in real life','smh':'shaking my head','fyi':'for your information','tbf':'to be fair',
+  'w/':'with','w/o':'without','pls':'please','plz':'please','thx':'thanks','ty':'thank you',
+  'bc':'because','cuz':'because','gonna':'going to','wanna':'want to','kinda':'kind of',
+  'sorta':'sort of','gotta':'got to','tryna':'trying to','boutta':'about to','ima':'I am going to',
+  'lowkey':'somewhat','highkey':'definitely','bussin':'excellent','bet':'agreed','sheesh':'wow',
+  'slay':'do great','cap':'lie','no cap':'no lie','periodt':'period','finna':'going to',
+  'prolly':'probably','obv':'obviously','legit':'legitimately','cya':'see you','ttyl':'talk to you later',
+};
+function expandSlang(txt) {
+  return txt.split(/\b/).map(w=>SLANG[w.toLowerCase()]||w).join('');
+}
+
+// ── Send message ──────────────────────────────────────────────────────
+async function sendMsg(presetMsg) {
+  const input = document.getElementById('msg-input');
+  const raw = (presetMsg !== undefined ? presetMsg : input.value).trim();
+  if (!raw) return;
+  if (!presetMsg) input.value = '';
+  if (!online) { addMsg('sys','[ OFFLINE — backend not connected ]'); return; }
+
+  const expanded = expandSlang(raw);
+  addMsg('user', raw);
+  setCoreText('PROCESSING', 'ANALYZING INPUT');
+  showTyping(true);
+  document.getElementById('core-dot').style.cssText = 'width:12px;height:12px;border-radius:50%;background:var(--p);box-shadow:0 0 14px var(--p);animation:blink .6s ease-in-out infinite';
+
+  history.push({ role: 'user', content: expanded });
+  if (history.length > 30) history = history.slice(-30);
+
+  try {
+    const res = await fetch(`${BASE}/api/chat`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message: expanded, model: model || 'llama3', history: history.slice(-20), save: true })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.response);
+
+    const reply = data.response || '';
+    history.push({ role:'assistant', content: reply });
+
+    if (data.memory_count) {
+      memCount = data.memory_count;
+      document.getElementById('hdr-mem').innerText = memCount;
+    }
+
+    showTyping(false);
+    addMsg('ai', reply);
+    speak(reply);
+    setCoreText('READY', 'AWAITING INPUT');
+
+    // Check for self-rewrite
+    if (reply.toLowerCase().includes('rewriting') || reply.toLowerCase().includes('self-rewrite')) {
+      rewriteCount++;
+      document.getElementById('hdr-rewrites').innerText = rewriteCount;
+    }
+    commLog('AI', reply.slice(0,60)+'…', 'ok');
+  } catch(e) {
+    showTyping(false);
+    addMsg('sys', `[ ERROR: ${e.message} ]`);
+    setCoreText('ERROR', e.message.slice(0,30));
+    sysLog(`Chat error: ${e.message}`, 'err');
+  }
+  document.getElementById('core-dot').style.cssText = 'width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);animation:blink 2s ease-in-out infinite';
+}
+
+// ── Health poll ───────────────────────────────────────────────────────
+async function poll() {
+  try {
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 3000);
+    const d = await (await fetch(`${BASE}/health`, { signal: ctl.signal })).json();
+    if (!online) {
+      online = true;
+      document.getElementById('status-pill').className = 'online ' + document.getElementById('status-pill').className.replace('online','');
+      document.getElementById('status-pill').classList.add('online');
+      document.getElementById('status-txt').textContent = 'ONLINE';
+      sysLog('Backend connected', 'ok');
+      commLog('SYS', 'J.A.R.V.I.S. backend online', 'ok');
+      setCoreText('ONLINE', 'SYSTEM READY');
+      loadModels();
+    }
+  } catch(e) {
+    if (online) {
+      online = false;
+      document.getElementById('status-pill').classList.remove('online');
+      document.getElementById('status-txt').textContent = 'OFFLINE';
+      sysLog('Backend connection lost', 'err');
+    }
+  }
+}
+
+// ── Models ────────────────────────────────────────────────────────────
+async function loadModels() {
+  try {
+    const d = await (await fetch(`${BASE}/api/models`)).json();
+    const sel = document.getElementById('model-sel');
+    sel.innerHTML = '';
+    const models = d.models || [];
+    if (!models.length) {
+      sel.innerHTML = '<option value="">No models found</option>';
+      sysLog('No Ollama models. Run: ollama pull llama3.2:1b', 'warn');
+      return;
+    }
+    models.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.name; o.textContent = m.name;
+      sel.appendChild(o);
+    });
+    model = models[0].name;
+    sysLog(`Models loaded: ${models.map(m=>m.name).join(', ')}`, 'ok');
+  } catch(e) { sysLog('Model load failed', 'warn'); }
+}
+
+// ── System metrics poll ───────────────────────────────────────────────
+async function pollMetrics() {
+  if (!online) return;
+  try {
+    const d = await (await fetch(`${BASE}/api/system`)).json();
+    if (!d) return;
+    const setBar = (id, val) => {
+      const pct = Math.min(100, Math.max(0, val || 0));
+      const bar = document.getElementById(id);
+      const txt = document.getElementById(id.replace('-bar','-pct'));
+      if (bar) { bar.style.width = pct+'%'; bar.className = 'metric-bar-fill' + (pct>85?' crit':pct>65?' warn':''); }
+      if (txt) txt.textContent = pct.toFixed(0)+'%';
+    };
+    setBar('cpu-bar', d.cpu);
+    setBar('ram-bar', d.ram);
+    setBar('disk-bar', d.disk);
+    if (d.temp && document.getElementById('temp-val')) document.getElementById('temp-val').textContent = d.temp+'°C';
+    if (d.battery && document.getElementById('bat-val')) document.getElementById('bat-val').textContent = d.battery+'%';
+  } catch(e) {}
+}
+
+// ── Compat load ───────────────────────────────────────────────────────
 async function loadCompat() {
-    try {
-        const d = await (await fetch(`${BASE}/api/compat`, {signal: AbortSignal.timeout(3000)})).json();
-        deviceCompat = d;
-        const badge = document.getElementById('compat-badge');
-        if (badge) {
-            badge.innerText = `${d.arch}  ${d.ram_mb}MB  Android ${d.android}`;
-            badge.style.display = 'block';
-        }
-        if (d.offline_mode || d.arm32) {
-            sysLog(`[COMPAT] ARM32/offline mode — voice AI disabled`, 'warn');
-            showOfflineNotice(d.arm32 ? 'ARM32 device — Ollama unavailable. Text UI only.' : 'Offline mode active.');
-        }
-        if (d.low_ram) sysLog(`[COMPAT] Low RAM (${d.ram_mb}MB) — using compact context`, 'warn');
-        if (!SPEECH_AVAILABLE) {
-            sysLog('[COMPAT] Speech API not available — text input only', 'warn');
-            const micBtn = document.getElementById('mic-btn');
-            if (micBtn) { micBtn.disabled = true; micBtn.style.opacity = '0.3'; micBtn.title = 'Voice not available in this browser'; }
-        }
-        if (!TTS_AVAILABLE) {
-            sysLog('[COMPAT] TTS not available — silent mode', 'warn');
-            TTS.enabled = false;
-        }
-    } catch(e) { /* server not up yet — compat loads after first poll */ }
+  try {
+    const d = await (await fetch(`${BASE}/api/compat`, {signal: AbortSignal.timeout(3000)})).json();
+    deviceCompat = d;
+    const info = document.getElementById('compat-info');
+    if (info) info.textContent = `${d.arch} · ${d.ram_mb}MB RAM · Android ${d.android}`;
+    if (d.offline_mode || d.arm32) {
+      addMsg('sys', '⚠ ARM32 / Offline mode — voice AI unavailable. Text only.');
+    }
+    if (!SPEECH_AVAILABLE) {
+      const btn = document.getElementById('mic-btn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '.3'; btn.title = 'Voice unavailable in this browser'; }
+    }
+    if (!TTS_AVAILABLE) TTS.enabled = false;
+  } catch(e) {}
 }
 
-function showOfflineNotice(msg) {
-    const n = document.getElementById('offline-notice');
-    if (n) { n.innerText = '⚠ ' + msg; n.classList.remove('hidden'); }
-}
-
-// ── State ────────────────────────────────────────────────────────────
-let online       = false;
-let history      = [];  // in-session conversation history
-let model        = '';
-let vmMode       = 'wake';  // 'wake' | 'cmd' | 'off'
-let recognition  = null;
-let speaking     = false;
-let rewriteCount = 0;
-let memCount     = 0;
-let userProfile  = { name: 'Boss' };
-
-// ── Memory helpers ────────────────────────────────────────────────────
+// ── Memory ────────────────────────────────────────────────────────────
 async function loadMemory() {
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/memory`)).json();
-        memCount = d.count || 0;
-        document.getElementById('hdr-mem-count').innerText = memCount;
-
-        // Load recent history into local session
-        if (d.messages && d.messages.length && history.length === 0) {
-            history = d.messages.slice(-10);
-            sysLog(`Loaded ${memCount} memories from disk`, 'ok');
-            addCommLog('MEM', `Memory restored: ${memCount} messages${d.summary ? ' — "' + d.summary.slice(0,60) + '…"' : ''}`, 'sys');
-        }
-        if (d.summary) {
-            sysLog(`Summary: ${d.summary.slice(0,80)}...`, 'ok');
-        }
-    } catch(e) { sysLog('Memory load failed', 'warn'); }
+  try {
+    const d = await (await fetch(`${BASE}/api/memory`)).json();
+    memCount = d.count || 0;
+    document.getElementById('hdr-mem').innerText = memCount;
+    if (d.messages?.length && !history.length) {
+      history = d.messages.slice(-10);
+      sysLog(`Memory restored: ${memCount} messages`, 'ok');
+      commLog('MEM', `${memCount} messages loaded from disk`, 'sys');
+    }
+  } catch(e) { sysLog('Memory load failed', 'warn'); }
 }
 
 async function loadProfile() {
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/profile`)).json();
-        userProfile = d;
-        if (d.name) sysLog(`Profile loaded — Hello, ${d.name}`, 'ok');
-    } catch(e) {}
+  try {
+    const d = await (await fetch(`${BASE}/api/profile`)).json();
+    userProfile = d;
+  } catch(e) {}
 }
 
 function showMemoryPanel() {
-    const panel = document.getElementById('mem-modal');
-    if (panel) panel.classList.remove('hidden');
+  document.getElementById('mem-modal').classList.remove('hidden');
+  refreshMemModal();
 }
-
 function hideMemoryPanel() {
-    const panel = document.getElementById('mem-modal');
-    if (panel) panel.classList.add('hidden');
+  document.getElementById('mem-modal').classList.add('hidden');
 }
-
+async function refreshMemModal() {
+  try {
+    const d = await (await fetch(`${BASE}/api/memory`)).json();
+    document.getElementById('modal-mem-count').innerText = d.count || 0;
+    document.getElementById('modal-profile-name').innerText = userProfile.name || '—';
+    if (d.summary) document.getElementById('modal-summary').textContent = '"' + d.summary + '"';
+  } catch(e) {}
+}
 async function clearMemory() {
-    if (!confirm('Clear all saved memory? (A backup will be saved to workspace)')) return;
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/memory/clear`,{method:'POST'})).json();
-        if (d.success) {
-            history = [];
-            memCount = 0;
-            document.getElementById('hdr-mem-count').innerText = 0;
-            sysLog('Memory cleared.', 'warn');
-            addCommLog('MEM', 'Conversation memory cleared. Fresh start.', 'sys');
-        }
-    } catch(e) { sysLog('Clear failed', 'err'); }
-    hideMemoryPanel();
+  if (!confirm('Clear all memory? (backup saved first)')) return;
+  try {
+    await fetch(`${BASE}/api/memory/clear`, {method:'POST'});
+    history = []; memCount = 0;
+    document.getElementById('hdr-mem').innerText = 0;
+    sysLog('Memory cleared', 'warn');
+    addMsg('sys', '[ Memory cleared — fresh start ]');
+  } catch(e) {}
+  hideMemoryPanel();
 }
 
-// ────────────────────────────────────────────────────────────────────
-// CLOCK
-// ────────────────────────────────────────────────────────────────────
-function tick() {
-    const n = new Date();
-    document.getElementById('clk').innerText  = n.toLocaleTimeString('en-US',{hour12:false});
-    document.getElementById('clkd').innerText = n.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
-}
-setInterval(tick, 1000); tick();
-
-// ────────────────────────────────────────────────────────────────────
-// LOGS
-// ────────────────────────────────────────────────────────────────────
-function sysLog(msg, type='') {
-    const el = document.getElementById('sys-log');
-    const d  = document.createElement('div');
-    d.className = type === 'err' ? 'text-[#ff003c]' : type === 'ok' ? 'text-[#00ff88]' : type === 'warn' ? 'text-[#f59e0b]' : '';
-    d.innerText = `> ${msg}`;
-    el.appendChild(d);
-    el.scrollTop = el.scrollHeight;
-    while (el.children.length > 120) el.removeChild(el.firstChild);
-}
-
-function chatMsg(who, text, type='sys') {
-    const el  = document.getElementById('chat-log');
-    const div = document.createElement('div');
-    div.className = `chat-${type} px-2 py-1 rounded-sm`;
-    div.innerHTML = `<span class="opacity-50 text-[9px] mr-1">[${who}]</span>${escHtml(text.substring(0,800))}${text.length>800?'…':''}`;
-    el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
-    while (el.children.length > 80) el.removeChild(el.firstChild);
-}
-
-function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-function clearChat() {
-    history = [];
-    document.getElementById('chat-log').innerHTML = '<div class="chat-sys px-2 py-1">History cleared.</div>';
-}
-
-// ────────────────────────────────────────────────────────────────────
-// BACKEND HEALTH
-// ────────────────────────────────────────────────────────────────────
-async function poll() {
-    try {
-        const ctl = new AbortController();
-        setTimeout(() => ctl.abort(), 3000);
-        const d = await (await fetch(`${BASE}/health`, {signal: ctl.signal})).json();
-        if (!online) {
-            online = true;
-            sysLog('CONNECTION ESTABLISHED', 'ok');
-            updateOnlineUI();
-            loadModels();
-            fetchHW();
-            setTimeout(() => runDeviceScan(), 1500);
-        } else {
-            fetchHW();
-        }
-        document.getElementById('hdr-agent-count').innerText = d.agents ?? 0;
-        refreshAgents();
-    } catch {
-        if (online) {
-            online = false;
-            updateOfflineUI();
-            sysLog('BACKEND DISCONNECTED', 'err');
-        }
-    }
-}
-
-function updateOnlineUI() {
-    document.getElementById('srv-ind').innerHTML =
-        `<span class="text-[#00f3ff]">BACKEND: ONLINE</span> <span class="w-1.5 h-1.5 rounded-full bg-[#00f3ff] shadow-[0_0_5px_#00f3ff] inline-block"></span>`;
-    setCoreText('STANDBY MODE', false);
-}
-
-function updateOfflineUI() {
-    document.getElementById('srv-ind').innerHTML =
-        `<span class="text-[#ff003c]">BACKEND: OFFLINE</span> <span class="w-1.5 h-1.5 rounded-full bg-[#ff003c] animate-ping inline-block"></span>`;
-    setCoreText('AWAITING CONNECTION', true);
-}
-
-function setCoreText(t, red=false) {
-    const el = document.getElementById('core-txt');
-    el.innerText = t;
-    el.className = `orb tracking-[.3em] text-xs mb-1 ${red ? 'text-[#ff003c] animate-pulse' : 'text-[#00f3ff]/40'}`;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// HARDWARE STATS
-// ────────────────────────────────────────────────────────────────────
-async function fetchHW() {
-    try {
-        const d = await (await fetch(`${BASE}/api/system`)).json();
-        setBar('cpu', d.cpu ?? 0);
-        setBar('ram', d.ram ?? 0);
-        document.getElementById('mini-cpu').innerText = `${d.cpu ?? 0}%`;
-        document.getElementById('mini-ram').innerText = `${d.ram ?? 0}%`;
-        if ((d.ram ?? 0) > RAM_GUARD) {
-            document.getElementById('ram-guard').classList.remove('hidden');
-            if (history.length > 4) {
-                history = history.slice(-4);
-                sysLog(`RAM guard: context trimmed (${d.ram}%)`, 'warn');
-            }
-        } else {
-            document.getElementById('ram-guard').classList.add('hidden');
-        }
-    } catch {}
-}
-
-async function runDeviceScan() {
-    sysLog('Running device scan...');
-    try {
-        const d = await (await fetch(`${BASE}/api/device`)).json();
-        sysLog(`Uptime: ${d.uptime}`);
-        if (d.cpu)    sysLog(`CPU: ${d.cpu.cores} cores ${d.cpu.load_pct}%`);
-        if (d.memory) sysLog(`RAM: ${d.memory.total_mb}MB / ${d.memory.used_pct}%`);
-        if (d.storage) sysLog(`Storage: ${d.storage.used}/${d.storage.size} (${d.storage.use_pct})`);
-        if (d.battery) {
-            const cap = d.battery.capacity ?? d.battery.percentage ?? '?';
-            document.getElementById('hw-bat').innerText = `${cap}%`;
-            setBarEl(document.getElementById('bar-bat'), parseInt(cap) || 0);
-            sysLog(`Battery: ${cap}% ${d.battery.status ?? ''}`, 'ok');
-        }
-        if (d.temperatures_c) {
-            const top = Object.entries(d.temperatures_c).slice(0,3).map(([k,v])=>`${k}:${v}°C`).join(' ');
-            sysLog(`Temps: ${top}`);
-        }
-        if (d.android) {
-            const info = `${d.android.brand ?? ''} ${d.android.model ?? ''} Android ${d.android.release ?? ''}`;
-            sysLog(`Device: ${info.trim()}`, 'ok');
-            document.getElementById('device-strip').innerHTML =
-                `<div>${info.trim()}</div>` +
-                (d.storage ? `<div>Storage: ${d.storage.used}/${d.storage.size}</div>` : '') +
-                (d.battery ? `<div>Battery: ${d.battery.capacity ?? '?'}% · ${d.battery.status ?? ''}</div>` : '');
-        }
-        if (d.network) {
-            const nets = Object.entries(d.network).map(([k,v])=>`${k}↓${v.rx_mb}MB↑${v.tx_mb}MB`).join(' ');
-            sysLog(`Net: ${nets}`);
-        }
-        sysLog('Scan complete.', 'ok');
-    } catch (e) { sysLog(`Scan error: ${e.message}`, 'err'); }
-}
-
-function setBar(key, pct) {
-    const capped = Math.min(pct, 100);
-    const val = document.getElementById(`hw-${key}`);
-    const bar = document.getElementById(`bar-${key}`);
-    if (!val) return;
-    val.innerText = `${capped}%`;
-    bar.style.width = `${capped}%`;
-    const color = capped > 85 ? '#ff003c' : capped > 60 ? '#f59e0b' : '#00f3ff';
-    bar.style.backgroundColor = color;
-    val.style.color = color;
-}
-
-function setBarEl(bar, pct) {
-    bar.style.width = `${Math.min(pct,100)}%`;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// MODELS
-// ────────────────────────────────────────────────────────────────────
-async function loadModels() {
-    try {
-        const d = await (await fetch(`${BASE}/api/models`)).json();
-        const sel = document.getElementById('model-sel');
-        if (d.models?.length) {
-            sel.innerHTML = d.models.map(m => `<option value="${m}">${m}</option>`).join('');
-            model = d.models[0];
-            sysLog(`Models: ${d.models.join(', ')}`, 'ok');
-        } else {
-            sel.innerHTML = '<option value="llama3">llama3</option>';
-            model = 'llama3';
-            sysLog('No models found — using llama3', 'warn');
-        }
-    } catch {
-        document.getElementById('model-sel').innerHTML = '<option value="llama3">llama3</option>';
-        model = 'llama3';
-    }
-}
-
-function onModelChange(v) { model = v; sysLog(`Model → ${v}`); }
-
-// ────────────────────────────────────────────────────────────────────
-// CHAT
-// ────────────────────────────────────────────────────────────────────
-async function send(msg) {
-    if (!msg.trim()) return;
-    document.getElementById('chat-input').value = '';
-    document.getElementById('transcript-preview').innerText = '';
-
-    chatMsg('YOU', msg, 'user');
-    sysLog(`TX: ${msg.substring(0,60)}...`);
-    setCoreText('PROCESSING', false);
-
-    history.push({role:'user', content: msg});
-    // Keep local history from ballooning (server handles real persistence)
-    if (history.length > 30) history = history.slice(-30);
-
-    try {
-        const res = await fetch(`${BASE}/api/chat`, {
-            method : 'POST',
-            headers: {'Content-Type':'application/json'},
-            body   : JSON.stringify({
-                message : msg,
-                model   : model || 'llama3',
-                history : history.slice(-20),
-                save    : true
-            })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.response);
-
-        const reply = data.response || '';
-        history.push({role:'assistant', content: reply});
-
-        // Update memory counter from response
-        if (data.memory_count) {
-            memCount = data.memory_count;
-            document.getElementById('hdr-mem-count').innerText = memCount;
-        }
-        // Show if slang was expanded
-        if (data.expanded && data.expanded !== msg) {
-            sysLog(`Interpreted: "${data.expanded.slice(0,60)}"`, 'ok');
-        }
-
-        // Detect special response types
-        if (data.spawned) {
-            chatMsg('AGENT-SPAWNER', reply, 'agent');
-            sysLog(`Agent spawned: ${data.agent_name}`, 'ok');
-            document.getElementById('spawn-indicator').classList.remove('hidden');
-            setTimeout(() => document.getElementById('spawn-indicator').classList.add('hidden'), 3000);
-            refreshAgents();
-        } else if (data.rewritten) {
-            chatMsg('SELF-REWRITER', reply, 'rewrite');
-            rewriteCount++;
-            document.getElementById('hdr-rewrite-count').innerText = rewriteCount;
-            document.getElementById('rewrite-indicator').classList.remove('hidden');
-            setTimeout(() => document.getElementById('rewrite-indicator').classList.add('hidden'), 5000);
-        } else {
-            chatMsg('J.A.R.V.I.S.', reply, 'ai');
-        }
-
-        setCoreText('STANDBY MODE', false);
-        speak(reply);
-
-        // Auto-save code blocks
-        const blocks = [...reply.matchAll(/```(\w*)\n([\s\S]+?)```/g)];
-        for (let i = 0; i < blocks.length; i++) {
-            const ext = ({python:'py',javascript:'js',bash:'sh'})[blocks[i][1]] ?? (blocks[i][1] || 'py');
-            await saveCode(blocks[i][2], `gen_${Date.now()}_${i}.${ext}`);
-        }
-
-    } catch(e) {
-        chatMsg('SYSTEM', `Error: ${e.message}`, 'err');
-        sysLog(`Error: ${e.message}`, 'err');
-        setCoreText('ERROR', true);
-        speak('I encountered an error. Check the system logs.');
-    }
-}
-
-async function saveCode(code, filename) {
-    try {
-        const r = await fetch(`${BASE}/api/code`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({filename, code, execute: false})
-        });
-        const d = await r.json();
-        sysLog(`Code saved: ${d.saved}`, 'ok');
-    } catch {}
-}
-
-function submitChat(e) {
-    e.preventDefault();
-    const v = document.getElementById('chat-input').value.trim();
-    if (v) send(v);
-}
-
-// ────────────────────────────────────────────────────────────────────
-// QUICK SPAWN (form)
-// ────────────────────────────────────────────────────────────────────
-function quickSpawn(e) {
-    e.preventDefault();
-    const task = document.getElementById('spawn-input').value.trim();
-    if (!task) return;
-    document.getElementById('spawn-input').value = '';
-    send(`spawn agent to ${task}`);
-}
-
-// ────────────────────────────────────────────────────────────────────
-// AGENT LIST
-// ────────────────────────────────────────────────────────────────────
+// ── Sub-agents ────────────────────────────────────────────────────────
 async function refreshAgents() {
-    try {
-        const d  = await (await fetch(`${BASE}/api/agents`)).json();
-        const el = document.getElementById('agent-list');
-        const running = d.agents.filter(a => a.status === 'running').length;
-
-        document.getElementById('ac-count').innerText = `${running} ACTIVE`;
-        document.getElementById('hdr-agent-count').innerText = running;
-
-        if (!d.agents.length) {
-            el.innerHTML = `<div class="mono text-[10px] text-[#00ff88]/30 italic text-center mt-4">No sub-agents running.<br>Say "spawn agent to [task]".</div>`;
-            return;
-        }
-
-        el.innerHTML = '';
-        [...d.agents].reverse().forEach(a => {
-            const card = document.createElement('div');
-            card.className = `agent-card ${a.status}`;
-            card.dataset.id = a.id;
-
-            const statusBadge = {
-                running  : '<span class="badge badge-run">RUN</span>',
-                completed: '<span class="badge badge-done">DONE</span>',
-                killed   : '<span class="badge badge-kill">KILL</span>',
-                failed   : '<span class="badge badge-fail">FAIL</span>',
-            }[a.status] ?? `<span class="badge badge-done">${a.status.toUpperCase()}</span>`;
-
-            const uptime = a.uptime < 60 ? `${a.uptime}s` : `${Math.floor(a.uptime/60)}m`;
-            const killBtn = a.status === 'running'
-                ? `<button onclick="killAgent('${a.id}')" title="Kill agent" class="text-[#ff003c]/50 hover:text-[#ff003c] text-xs"><i class="fas fa-skull"></i></button>`
-                : '';
-
-            card.innerHTML = `
-                <div class="flex items-start justify-between mb-1">
-                    <div class="mono text-[10px] text-[#00ff88] font-bold truncate flex-1">${escHtml(a.name)}</div>
-                    <div class="flex items-center gap-1 ml-2 flex-shrink-0">${statusBadge} ${killBtn}</div>
-                </div>
-                <div class="mono text-[9px] text-[#00ff88]/50 truncate mb-1">${escHtml(a.task.substring(0,60))}</div>
-                <div class="flex justify-between mono text-[9px] text-[#00ff88]/35">
-                    <span>PID ${a.pid}</span>
-                    <span>${uptime}</span>
-                </div>`;
-            el.appendChild(card);
-        });
-    } catch {}
+  if (!online) return;
+  try {
+    const d = await (await fetch(`${BASE}/api/agents`)).json();
+    const agents = d.agents || [];
+    document.getElementById('hdr-agents').innerText = agents.filter(a=>a.status==='running').length;
+    const list = document.getElementById('agent-list');
+    if (!agents.length) {
+      list.innerHTML = '<div class="mono text-[10px] text-[rgba(0,255,157,.25)] text-center pt-4">No agents running</div>';
+      return;
+    }
+    list.innerHTML = '';
+    agents.forEach(a => {
+      const chip = document.createElement('div');
+      chip.className = 'agent-chip';
+      chip.innerHTML = `<span class="status-dot ${a.status==='running'?'run':a.status==='done'?'done':'fail'}"></span>
+        <span class="flex-1 mono text-[10px] text-[rgba(0,255,157,.7)] truncate">${a.name||a.id}</span>
+        ${a.status==='running'?`<button onclick="killAgent('${a.id}')" class="text-[rgba(255,0,60,.5)] hover:text-[var(--r)] text-[10px]"><i class="fas fa-times"></i></button>`:''}`;
+      list.appendChild(chip);
+    });
+  } catch(e) {}
 }
 
 async function killAgent(id) {
-    sysLog(`Killing agent ${id}...`, 'warn');
-    try {
-        await fetch(`${BASE}/api/agents/${id}/kill`, {method:'POST'});
-        sysLog('Agent killed.', 'ok');
-        refreshAgents();
-    } catch(e) { sysLog(`Kill failed: ${e.message}`, 'err'); }
+  try { await fetch(`${BASE}/api/agents/${id}/kill`, {method:'POST'}); refreshAgents(); } catch(e) {}
 }
 
-// ────────────────────────────────────────────────────────────────────
-// TTS
-// ────────────────────────────────────────────────────────────────────
-function speak(text) {
-    if (!TTS.enabled || !speechSynthesis) return;
-    const clean = text
-        .replace(/```[\s\S]*?```/g, 'Code block saved.')
-        .replace(/`[^`]+`/g, s => s.replace(/`/g,''))
-        .replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1')
-        .replace(/#+\s/g,'').replace(/\n+/g,' ')
-        .trim().substring(0,450);
-
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(clean);
-    u.rate   = TTS.rate; u.pitch = TTS.pitch; u.volume = TTS.volume;
-    const voices = speechSynthesis.getVoices();
-    const v = voices.find(v =>
-        /male|daniel|google uk english male|en-gb/i.test(v.name)
-    );
-    if (v) u.voice = v;
-    u.onstart = () => { speaking = true; setMicState('speak'); };
-    u.onend   = () => {
-        speaking = false;
-        setMicState(vmMode === 'wake' ? 'wake' : 'idle');
-        if (vmMode === 'wake' && recognition) {
-            try { recognition.start(); } catch {}
-        }
-    };
-    u.onerror  = u.onend;
-    speechSynthesis.speak(u);
+function spawnAgent() {
+  const task = prompt('Describe agent task:');
+  if (task) sendMsg(`spawn agent to: ${task}`);
 }
 
-// ────────────────────────────────────────────────────────────────────
-// SPEECH RECOGNITION
-// ────────────────────────────────────────────────────────────────────
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
+// ── Voice ─────────────────────────────────────────────────────────────
 function initVoice() {
-    if (!SR) { sysLog('Web Speech API not available', 'err'); return; }
-    recognition = new SR();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = e => {
-        let interim = '', final = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-            const t = e.results[i][0].transcript.toLowerCase().trim();
-            if (e.results[i].isFinal) final = t; else interim = t;
-        }
-        document.getElementById('transcript-preview').innerText = interim || final;
-        if (!final) return;
-
-        if (vmMode === 'wake') {
-            if (WAKE_WORDS.some(w => final.includes(w))) activateCmd(final);
-        } else if (vmMode === 'cmd') {
-            let cmd = final;
-            WAKE_WORDS.forEach(w => { cmd = cmd.replace(w,'').trim(); });
-            if (cmd.length > 2) {
-                vmMode = 'wake'; setMicState('wake');
-                document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
-                send(cmd);
-            }
-        }
-    };
-
-    recognition.onerror = e => {
-        if (!['no-speech','aborted'].includes(e.error)) sysLog(`Voice error: ${e.error}`, 'err');
-    };
-
-    recognition.onend = () => {
-        if (vmMode === 'wake' && !speaking) {
-            try { recognition.start(); } catch {}
-        } else if (vmMode === 'cmd') {
-            setTimeout(() => {
-                if (vmMode === 'cmd') {
-                    vmMode = 'wake'; setMicState('wake');
-                    try { recognition.start(); } catch {}
-                }
-            }, 400);
-        }
-    };
-
-    vmMode = 'wake'; setMicState('wake');
-    try {
-        recognition.start();
-        sysLog('Wake-word listener armed: "Hey Jarvis"', 'ok');
-    } catch(e) { sysLog(`Voice init failed: ${e.message}`, 'err'); }
-}
-
-function activateCmd(raw) {
-    vmMode = 'cmd'; setMicState('cmd');
-    document.getElementById('wake-txt').innerText = 'LISTENING — SPEAK YOUR COMMAND...';
-    beep();
-    let tail = raw;
-    WAKE_WORDS.forEach(w => { tail = tail.replace(w,'').trim(); });
-    if (tail.length > 2) {
-        vmMode = 'wake'; setMicState('wake');
-        document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
-        send(tail); return;
+  if (!SPEECH_AVAILABLE) { sysLog('Speech API not available', 'warn'); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'en-US';
+  recognition.onresult = e => {
+    const t = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
+    const wakeHit = WAKE_WORDS.some(w => t.startsWith(w));
+    if (wakeHit) {
+      document.getElementById('wake-bar').classList.add('active');
+      const cmd = WAKE_WORDS.reduce((s,w) => s.replace(w,''), t).trim();
+      if (cmd) sendMsg(cmd);
+      else { addMsg('sys','[ Wake word detected — listening... ]'); setCoreText('LISTENING','SAY YOUR COMMAND'); }
+      setTimeout(() => document.getElementById('wake-bar').classList.remove('active'), 1500);
+    } else if (document.getElementById('mic-btn').classList.contains('active')) {
+      sendMsg(t);
     }
-    try { recognition.stop(); } catch {}
-    setTimeout(() => { if (!speaking) try { recognition.start(); } catch {} }, 300);
+  };
+  recognition.onerror = e => { if (e.error !== 'no-speech') sysLog(`Speech error: ${e.error}`, 'warn'); };
+  recognition.onend = () => { try { recognition.start(); } catch(e) {} };
+  try { recognition.start(); sysLog('Voice recognition: active', 'ok'); } catch(e) {}
 }
 
-function toggleListen() {
-    if (!recognition) { initVoice(); return; }
-    if (vmMode === 'cmd') {
-        vmMode = 'wake'; setMicState('wake');
-        document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
-        try { recognition.stop(); } catch {}
-        setTimeout(() => { try { recognition.start(); } catch {}}, 300);
-    } else { activateCmd(''); }
+function toggleMic() {
+  const btn = document.getElementById('mic-btn');
+  btn.classList.toggle('active');
+  if (btn.classList.contains('active')) {
+    addMsg('sys', '[ Microphone active — speak now ]');
+    sysLog('Mic: open', 'ok');
+  } else {
+    sysLog('Mic: closed', 'info');
+  }
 }
 
-function setMicState(state) {
-    const btn  = document.getElementById('mic-btn');
-    const icon = document.getElementById('mic-icon');
-    btn.className = btn.className.replace(/\b(wake|cmd|speak)\b/g,'').trim();
-    btn.classList.add(state);
-    icon.className = state === 'cmd' ? 'fas fa-microphone-alt' : state === 'speak' ? 'fas fa-volume-up' : 'fas fa-microphone';
-}
-
-function beep() {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator(); const g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.setValueAtTime(880, ctx.currentTime);
-        o.frequency.setValueAtTime(1320, ctx.currentTime + 0.06);
-        g.gain.setValueAtTime(0.12, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-        o.start(); o.stop(ctx.currentTime + 0.18);
-    } catch {}
-}
-
-// ────────────────────────────────────────────────────────────────────
-// CANVAS — ANIMATED CORE
-// ────────────────────────────────────────────────────────────────────
-(function() {
-    const c = document.getElementById('core-canvas');
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    let t = 0;
-    const resize = () => { c.width = c.offsetWidth; c.height = c.offsetHeight; };
-    window.addEventListener('resize', resize); resize();
-
-    function frame() {
-        const W = c.width, H = c.height, cx = W/2, cy = H/2;
-        ctx.clearRect(0,0,W,H);
-        const R = Math.min(W,H);
-        const active = online;
-        const col = (a) => active ? `rgba(0,243,255,${a})` : `rgba(255,0,60,${a})`;
-        const gcol = (a) => `rgba(0,255,136,${a})`;
-
-        // Sub-agent orbits (green dots)
-        const agentCards = document.querySelectorAll('.agent-card.running');
-        agentCards.forEach((_, i) => {
-            const angle = (t * 0.03) + (i * Math.PI * 2 / Math.max(agentCards.length,1));
-            const r = R * 0.42;
-            const x = cx + Math.cos(angle) * r;
-            const y = cy + Math.sin(angle) * r;
-            ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
-            ctx.fillStyle = gcol(0.8); ctx.fill();
-            ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
-            ctx.strokeStyle = gcol(0.3); ctx.lineWidth = 1; ctx.stroke();
-        });
-
-        // Rotating arcs
-        for (let i = 0; i < 4; i++) {
-            const a = t * 0.018 * (i+1) + i * Math.PI * 0.5;
-            ctx.beginPath();
-            ctx.arc(cx, cy, R*(0.38 - i*0.04), a, a + Math.PI * (0.5 - i*0.04));
-            ctx.strokeStyle = col(0.35 - i*0.06);
-            ctx.lineWidth = 1.5 - i*0.2; ctx.stroke();
-        }
-
-        // Pulse ring (speaking or cmd)
-        if (speaking || vmMode === 'cmd') {
-            const rr = R*0.18 + Math.sin(t*0.18)*10;
-            const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,rr);
-            grd.addColorStop(0, vmMode === 'cmd' ? 'rgba(255,0,60,.25)' : 'rgba(0,255,136,.2)');
-            grd.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2);
-            ctx.fillStyle = grd; ctx.fill();
-        }
-
-        // Core dot
-        const cr = 7 + Math.sin(t*0.06)*2;
-        const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,cr*3);
-        grd.addColorStop(0, col(0.95));
-        grd.addColorStop(1, col(0));
-        ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2);
-        ctx.fillStyle = grd; ctx.fill();
-
-        t++; requestAnimationFrame(frame);
-    }
-    frame();
-})();
-
-// ────────────────────────────────────────────────────────────────────
-// BG PARTICLES
-// ────────────────────────────────────────────────────────────────────
-(function() {
-    const c = document.getElementById('bgc');
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    const pts = Array.from({length:50}, () => ({
-        x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight,
-        vx: (Math.random()-.5)*.25, vy: (Math.random()-.5)*.25, r: Math.random()*1.4
-    }));
-    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
-    window.addEventListener('resize', resize); resize();
-    function draw() {
-        ctx.clearRect(0,0,c.width,c.height);
-        pts.forEach(p => {
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
-            if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
-            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-            ctx.fillStyle = 'rgba(0,243,255,.35)'; ctx.fill();
-        });
-        requestAnimationFrame(draw);
-    }
-    draw();
-})();
-
-// ────────────────────────────────────────────────────────────────────
-// BOOT
-// ────────────────────────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
-    sysLog('J.A.R.V.I.S. v2.0 interface loaded.');
-    sysLog('Initializing voice subsystem...');
-    poll(); setInterval(poll, POLL);
-    setInterval(refreshAgents, 5000);
-    setTimeout(initVoice, 1000);
-    // Load device compat + persistent memory + profile
-    setTimeout(async () => {
-        await loadCompat();
-        if (online) {
-            await loadProfile();
-            await loadMemory();
-        } else {
-            // Wait for connection, then load
-            const waitAndLoad = setInterval(async () => {
-                if (online) {
-                    clearInterval(waitAndLoad);
-                    await loadProfile();
-                    await loadMemory();
-                }
-            }, 1500);
-        }
-    }, 2000);
+  sysLog('J.A.R.V.I.S. v2.2 interface loaded', 'ok');
+  addMsg('sys', '[ J.A.R.V.I.S. v2.2 — Universal Termux Edition — Initializing... ]');
+  poll(); setInterval(poll, POLL);
+  setInterval(pollMetrics, 3000);
+  setInterval(refreshAgents, 5000);
+  setTimeout(initVoice, 1200);
+  document.getElementById('model-sel').addEventListener('change', e => { model = e.target.value; sysLog(`Model: ${model}`, 'ok'); });
+
+  // Load persistent data after initial connection
+  const waitOnline = setInterval(async () => {
+    if (online) {
+      clearInterval(waitOnline);
+      await loadCompat();
+      await loadProfile();
+      await loadMemory();
+    }
+  }, 1000);
 });
-
-// ────────────────────────────────────────────────────────────────────
-// MEMORY MODAL (injected as overlay)
-// ────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.createElement('div');
-    modal.id = 'mem-modal';
-    modal.className = 'hidden fixed inset-0 z-50 flex items-center justify-center';
-    modal.innerHTML = `
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="hideMemoryPanel()"></div>
-        <div class="relative gp rounded-xl p-6 w-96 z-10 border border-[#a78bfa]/40" style="background:rgba(10,5,30,.9)">
-            <div class="gp::before" style="border-color:#a78bfa"></div>
-            <h2 class="orb text-sm font-bold text-[#a78bfa] tracking-widest mb-4 flex items-center gap-2">
-                <i class="fas fa-brain"></i> MEMORY CORE
-            </h2>
-            <div class="mono text-xs text-[#00f3ff]/70 space-y-2 mb-5">
-                <div class="flex justify-between">
-                    <span>Saved messages</span>
-                    <span id="modal-mem-count" class="text-[#a78bfa] font-bold">—</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>User profile name</span>
-                    <span id="modal-profile-name" class="text-[#00ff88]">—</span>
-                </div>
-                <div id="modal-summary" class="text-[#00f3ff]/40 text-[10px] italic mt-2 leading-relaxed"></div>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="refreshMemModal()" class="flex-1 mono text-[11px] border border-[#00f3ff]/30 rounded py-2 hover:bg-[#00f3ff]/10 text-[#00f3ff]/60 hover:text-[#00f3ff]">
-                    <i class="fas fa-sync mr-1"></i> REFRESH
-                </button>
-                <button onclick="clearMemory()" class="flex-1 mono text-[11px] border border-[#ff003c]/30 rounded py-2 hover:bg-[#ff003c]/10 text-[#ff003c]/60 hover:text-[#ff003c]">
-                    <i class="fas fa-trash mr-1"></i> CLEAR
-                </button>
-                <button onclick="hideMemoryPanel()" class="mono text-[11px] border border-[#00f3ff]/20 rounded px-4 py-2 hover:bg-[#00f3ff]/5 text-[#00f3ff]/40">
-                    CLOSE
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-});
-
-async function refreshMemModal() {
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/memory`)).json();
-        document.getElementById('modal-mem-count').innerText = d.count || 0;
-        document.getElementById('modal-profile-name').innerText = userProfile.name || '—';
-        if (d.summary) {
-            document.getElementById('modal-summary').innerText = '"' + d.summary + '"';
-        }
-    } catch(e) {}
-}
-
-// Override showMemoryPanel to also refresh data
-const _origShowMem = showMemoryPanel;
-window.showMemoryPanel = function() {
-    _origShowMem();
-    refreshMemModal();
-};
 </script>
 </body>
 </html>
