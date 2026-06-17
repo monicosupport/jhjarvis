@@ -402,7 +402,7 @@
     <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-3" style="scroll-behavior:smooth"></div>
 
     <!-- No-model pull banner (hidden until needed) -->
-    <div id="pull-bar" class="hidden flex-shrink-0 border-t border-yellow-500/30 bg-yellow-900/20 px-4 py-2.5 flex items-center gap-3">
+    <div id="pull-bar" style="display:none" class="flex-shrink-0 border-t border-yellow-500/30 bg-yellow-900/20 px-4 py-2.5 flex items-center gap-3">
       <span class="text-yellow-400 text-xs">⚠</span>
       <span class="mono text-[10px] text-yellow-300 flex-1">No AI model installed</span>
       <button onclick="triggerPull(suggestedModel)" class="mono text-[9px] px-3 py-1 rounded border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20 active:scale-95 transition-all">PULL MODEL</button>
@@ -669,7 +669,7 @@ async function triggerPull(name) {
         addMsg('sys', `✅ Model ${d.models[0]} ready! What can I do for you?`);
       }
     }, 20000);
-  } catch {}
+  } catch(e) {}
 }
 
 $('model-sel').addEventListener('change', e => {
@@ -693,8 +693,8 @@ async function loadSystemStats() {
     if (d.cpu_percent !== undefined) { $(  'cpu-val').textContent = d.cpu_percent+'%'; setBar('cpu', d.cpu_percent); }
     if (d.ram_percent !== undefined) { $('ram-val').textContent = d.ram_used+'MB/'+d.ram_total+'MB'; setBar('ram', d.ram_percent, 85); }
     if (d.disk_percent!== undefined) { $('disk-val').textContent = d.disk_percent+'%'; setBar('disk', d.disk_percent); }
-    if (d.battery !== undefined)     { $('bat-val').textContent = d.battery+'%'; setBar('bat', d.battery, 101); // no warn for battery }
-  } catch {}
+    if (d.battery !== undefined)     { $('bat-val').textContent = d.battery+'%'; setBar('bat', d.battery, 101); }
+  } catch(e) {}
 }
 setInterval(loadSystemStats, 5000);
 
@@ -702,7 +702,7 @@ setInterval(loadSystemStats, 5000);
 let userProfile = {name:'Boss'};
 async function loadProfile() {
   try { userProfile = await fetch(`${BASE}/api/profile`).then(r=>r.json()); }
-  catch {}
+  catch(e) {}
 }
 
 async function loadMem() {
@@ -710,7 +710,7 @@ async function loadMem() {
     const d = await fetch(`${BASE}/api/memory`).then(r=>r.json());
     memCount = d.count || 0;
     $('hdr-mem').textContent = memCount;
-  } catch {}
+  } catch(e) {}
 }
 
 function showMem() {
@@ -725,7 +725,7 @@ async function refreshMem() {
     $('mem-count-modal').textContent = d.count || 0;
     $('mem-name-modal').textContent  = userProfile.name || '—';
     $('mem-summary-modal').textContent = d.summary ? '"'+d.summary+'"' : '';
-  } catch {}
+  } catch(e) {}
 }
 
 async function clearMem() {
@@ -752,7 +752,7 @@ async function refreshAgents() {
         <button onclick="killAgent('${a.id}')" class="text-[#f87171]/50 hover:text-[#f87171] text-[9px]"><i class="fas fa-times"></i></button>
       </div>`;
     }).join('');
-  } catch {}
+  } catch(e) {}
 }
 
 async function killAgent(id) {
@@ -869,7 +869,7 @@ function initVoice() {
 
   recognition.onend = () => {
     if (!micActive) return;
-    try { recognition.start(); } catch {}
+    try { recognition.start(); } catch(e) {}
   };
 
   // DO NOT auto-start — Chrome Android blocks mic without user gesture.
@@ -881,13 +881,23 @@ function toggleMic() {
   if (micActive) {
     // Stop
     micActive = false;
-    if (recognition) { try { recognition.stop(); } catch {} }
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
     $('mic-btn').classList.remove('active');
     setWakeBar('idle');
     $('voice-status').textContent = 'OFF';
     sysLog('Mic deactivated','info');
   } else {
     // Request permission then start
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // Fallback: just start recognition directly (some Android browsers)
+      micActive = true;
+      $('mic-btn').classList.add('active');
+      setWakeBar('listening');
+      $('voice-status').textContent = 'ON';
+      $('voice-status').style.color = '#34d399';
+      if (recognition) { try { recognition.start(); } catch(e) {} }
+      return;
+    }
     navigator.mediaDevices.getUserMedia({audio: true})
       .then(() => {
         micActive = true;
@@ -896,7 +906,7 @@ function toggleMic() {
         $('voice-status').textContent = 'ON';
         $('voice-status').style.color = '#34d399';
         sysLog('Mic active — say "Hey Jarvis" or just speak','ok');
-        if (recognition) { try { recognition.start(); } catch {} }
+        if (recognition) { try { recognition.start(); } catch(e) {} }
       })
       .catch(() => {
         addMsg('sys','Microphone permission denied. In Chrome, tap the lock icon in the address bar → allow microphone.','err');
