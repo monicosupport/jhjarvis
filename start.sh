@@ -36,9 +36,8 @@ echo ""
 
 # ── Determine best model for this device's RAM ────────────────
 if   [ "$TOTAL_RAM_MB" -lt 1800 ]; then MODEL="tinyllama"
-elif [ "$TOTAL_RAM_MB" -lt 3500 ]; then MODEL="llama3.2:1b"
-elif [ "$TOTAL_RAM_MB" -lt 6000 ]; then MODEL="llama3.2:3b"
-else                                     MODEL="llama3"
+elif [ "$TOTAL_RAM_MB" -lt 6000 ]; then MODEL="dolphin-phi:2.7b"
+else                                     MODEL="dolphin-mistral:7b-v2.8"
 fi
 echo "[*] Recommended model for ${TOTAL_RAM_MB}MB RAM: $MODEL"
 echo ""
@@ -147,6 +146,15 @@ if [ "$OLLAMA_OK" = "true" ]; then
             MODEL="tinyllama"
         fi
         echo "[✓] Model ready"
+        # Create uncensored 'jarvis' wrapper model
+        echo "[*] Creating uncensored jarvis model..."
+        printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
+        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>/dev/null; then
+            echo "[✓] jarvis model created (uncensored)"
+            MODEL="jarvis"
+        else
+            echo "[!] Modelfile creation skipped — using base model"
+        fi
     else
         # Use the ACTUAL installed model name, not the RAM-guessed one
         INSTALLED_MODEL=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | head -1)
