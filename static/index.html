@@ -520,6 +520,7 @@ let suggestedModel = 'llama3.2:1b';
 let history = [];
 let recognition = null;
 let synth = window.speechSynthesis;
+let ttsEnabled = true;
 let micActive = false;
 let memCount = 0;
 let agentCount = 0;
@@ -561,7 +562,7 @@ function addMsg(role, text, type='') {
   const d = document.createElement('div');
   d.className = `${cls} p-3 fade-in`;
   d.innerHTML = `<div class="mono text-[9px] ${labelColor} mb-1 tracking-widest font-bold">${label}</div>
-    <div class="text-sm leading-relaxed" style="font-family:'Rajdhani',sans-serif;font-size:.9rem">${escHtml(text)}</div>`;
+    <div class="msg-content text-sm leading-relaxed" style="font-family:'Rajdhani',sans-serif;font-size:.9rem">${escHtml(text)}</div>`;
   ch.appendChild(d);
   ch.scrollTop = ch.scrollHeight;
   return d;
@@ -786,28 +787,52 @@ async function send() {
   history.push({role:'user',content:msg});
   if (history.length > 30) history = history.slice(-28);
 
+  let aiEl    = null;
+  let fullText = '';
   try {
     const r = await fetch(`${BASE}/api/chat`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({message:msg, model:model||'llama3.2:1b', history:history.slice(-18), save:true})
     });
-    const d = await r.json();
-    hideTyping();
-    const reply = d.response || '';
-    const type  = d.error ? 'err' : '';
 
-    if (!d.error) {
-      history.push({role:'assistant',content:reply});
-      if (d.memory_count) { memCount = d.memory_count; $('hdr-mem').textContent = memCount; }
-      speak(reply);
-    }
+    hideTyping();  // hide spinner as soon as first byte arrives
 
-    addMsg(d.error ? 'sys' : 'ai', reply, type);
+    const reader = r.body.getReader();
+    const dec    = new TextDecoder();
+    let   buf    = '';
 
-    if (d.pulling) {
-      // Start polling for models
-      if (!pullTimer) triggerPull(d.pulling);
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete last line
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let d; try { d = JSON.parse(line.slice(6)); } catch(e) { continue; }
+
+        if (d.pulling) {
+          if (!pullTimer) triggerPull(d.pulling);
+          addMsg('sys', d.response || 'Pulling model — try again in a minute.', 'warn');
+          break;
+        }
+        if (d.error) {
+          addMsg('sys', d.response || 'Error', 'err');
+          break;
+        }
+        if (d.token) {
+          if (!aiEl) { aiEl = addMsg('ai', ''); }
+          fullText += d.token;
+          aiEl.querySelector('.msg-content').innerHTML = escHtml(fullText);
+          ch.scrollTop = ch.scrollHeight;
+        }
+        if (d.done) {
+          history.push({role:'assistant', content: fullText});
+          if (d.memory_count) { memCount = d.memory_count; $('hdr-mem').textContent = memCount; }
+          speak(fullText);
+        }
+      }
     }
 
   } catch(e) {
@@ -847,7 +872,7 @@ function initVoice() {
   recognition = new SR();
   recognition.continuous = true;
   recognition.interimResults = false;
-  recognition.lang = 'en-US';
+  recognition.lang = ''; // use browser/device default language
 
   recognition.onresult = e => {
     const t = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
@@ -864,7 +889,15 @@ function initVoice() {
   };
 
   recognition.onerror = e => {
-    if (e.error !== 'no-speech') sysLog('Speech error: '+e.error,'warn');
+    if (e.error === 'not-allowed') {
+      micActive = false;
+      $('mic-btn').classList.remove('active');
+      setWakeBar('idle');
+      $('voice-status').textContent = 'OFF';
+      addMsg('sys','Microphone blocked. Tap the lock icon in your browser address bar and allow microphone access.','err');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      sysLog('Speech error: '+e.error,'warn');
+    }
   };
 
   recognition.onend = () => {
@@ -931,14 +964,28 @@ function setWakeBar(state) {
 }
 
 function speak(text) {
-  if (!synth) return;
-  const clean = text.replace(/[*_`#\[\]]/g,'').replace(/https?:\/\/\S+/g,'').substring(0,300);
-  const u = new SpeechSynthesisUtterance(clean);
-  u.rate = TTS_CFG.rate; u.pitch = TTS_CFG.pitch; u.volume = TTS_CFG.vol;
+  if (!synth || !ttsEnabled) return;
+  const clean = text.replace(/[*_`#\[\]]/g,'').replace(/https?:\/\/\S+/g,'').substring(0,300).trim();
+  if (!clean) return;
   synth.cancel();
-  synth.speak(u);
-  setWakeBar('speaking');
-  u.onend = () => setWakeBar('idle');
+  const doSpeak = () => {
+    const u = new SpeechSynthesisUtterance(clean);
+    u.rate = TTS_CFG.rate; u.pitch = TTS_CFG.pitch; u.volume = TTS_CFG.vol;
+    const voices = synth.getVoices();
+    if (voices.length > 0) {
+      u.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+    }
+    u.onend   = () => setWakeBar(micActive ? 'listening' : 'idle');
+    u.onerror = (e) => { sysLog('TTS: '+e.error,'warn'); setWakeBar(micActive ? 'listening' : 'idle'); };
+    setWakeBar('speaking');
+    synth.speak(u);
+  };
+  // Android loads voices async — wait if not ready yet
+  if (synth.getVoices().length === 0) {
+    synth.onvoiceschanged = () => { synth.onvoiceschanged = null; setTimeout(doSpeak, 50); };
+  } else {
+    setTimeout(doSpeak, 50); // small delay helps Android release audio focus
+  }
 }
 
 // ── Mobile panel toggle ──────────────────────────────────────────
