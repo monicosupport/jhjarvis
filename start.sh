@@ -5,7 +5,9 @@
 # No root required
 # ============================================================
 JARVIS_DIR="$HOME/jarvis"
-LOG_DIR="/tmp/jarvis_logs"
+# Termux uses $TMPDIR, not /tmp (which doesn't exist without root)
+TMPBASE="${TMPDIR:-$PREFIX/tmp}"
+LOG_DIR="$TMPBASE/jarvis_logs"
 BIN_DIR="$HOME/bin"
 mkdir -p "$LOG_DIR" "$BIN_DIR"
 
@@ -146,7 +148,7 @@ echo "[*] Starting J.A.R.V.I.S. backend..."
 cd "$JARVIS_DIR"
 python3 server.py > "$LOG_DIR/server.log" 2>&1 &
 SERVER_PID=$!
-echo "$SERVER_PID" > /tmp/jarvis_server.pid
+echo "$SERVER_PID" > "$TMPBASE/jarvis_server.pid"
 sleep 2
 
 # ── Result ────────────────────────────────────────────────────
