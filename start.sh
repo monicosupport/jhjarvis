@@ -149,11 +149,14 @@ if [ "$OLLAMA_OK" = "true" ]; then
         # Create uncensored 'jarvis' wrapper model
         echo "[*] Creating uncensored jarvis model..."
         printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
-        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>/dev/null; then
-            echo "[✓] jarvis model created (uncensored)"
+        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | grep -q "success\|writing\|using"; then
+            echo "[✓] jarvis model ready"
+            MODEL="jarvis"
+        elif ollama list 2>/dev/null | grep -q "^jarvis"; then
+            echo "[✓] jarvis model created"
             MODEL="jarvis"
         else
-            echo "[!] Modelfile creation skipped — using base model"
+            echo "[!] jarvis model creation failed — using $MODEL"
         fi
     else
         # Use the ACTUAL installed model name, not the RAM-guessed one
@@ -164,19 +167,23 @@ if [ "$OLLAMA_OK" = "true" ]; then
         echo "[*] Models available: $MODEL_COUNT"
         ollama list 2>/dev/null | tail -n +2 | awk '{print "    • "$1}'
         echo "[*] Active model: $MODEL"
-        # Create jarvis wrapper if it doesn't already exist
-        if ! ollama list 2>/dev/null | grep -q "^jarvis"; then
-            echo "[*] Creating uncensored jarvis model..."
-            printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
-            if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>/dev/null; then
-                echo "[✓] jarvis model created (uncensored)"
-                MODEL="jarvis"
-            else
-                echo "[!] Could not create jarvis model — using $MODEL"
-            fi
-        else
+        # Always recreate jarvis model fresh (delete stale one first)
+        JARVIS_EXISTS=$(ollama list 2>/dev/null | grep "^jarvis" | wc -l)
+        if [ "$JARVIS_EXISTS" -gt 0 ]; then
+            echo "[*] Removing old jarvis model..."
+            ollama rm jarvis 2>/dev/null || true
+        fi
+        echo "[*] Creating uncensored jarvis model from $MODEL..."
+        printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
+        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | tee /tmp/jarvis_create.log | grep -q "success\|writing\|using"; then
+            echo "[✓] jarvis model ready"
             MODEL="jarvis"
-            echo "[✓] jarvis model already exists"
+        elif ollama list 2>/dev/null | grep -q "^jarvis"; then
+            echo "[✓] jarvis model created"
+            MODEL="jarvis"
+        else
+            echo "[!] Could not create jarvis model — using $MODEL directly"
+            cat /tmp/jarvis_create.log 2>/dev/null || true
         fi
     fi
 fi
