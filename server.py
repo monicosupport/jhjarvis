@@ -282,12 +282,10 @@ def get_best_model(requested=None):
             for m in models:
                 if base in m.lower():
                     return m, None
+        # Requested model not found but we DO have something installed — use it
         return models[0], None
-    # Nothing installed — kick off auto-pull in background
+    # Nothing installed at all
     target = _device.get('recommended_model', 'llama3.2:1b')
-    def _pull():
-        ollama('/api/pull', {'name': target, 'stream': False}, timeout=600)
-    threading.Thread(target=_pull, daemon=True).start()
     return None, target
 
 def ollama_generate(prompt, model='llama3', system=None):
