@@ -116,6 +116,19 @@ if [ "$OLLAMA_OK" = "true" ]; then
         echo "[*] Ollama: already running"
     fi
 
+    # Wait for Ollama to be truly ready (up to 20s)
+    echo "[*] Waiting for Ollama to be ready..."
+    for i in $(seq 1 20); do
+        if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+            echo "[✓] Ollama ready (${i}s)"
+            break
+        fi
+        sleep 1
+        if [ "$i" -eq 20 ]; then
+            echo "[!] Ollama took too long — continuing anyway"
+        fi
+    done
+
     # Pull recommended model if nothing installed — SYNCHRONOUS so it's ready before the browser opens
     MODEL_COUNT=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
     if [ "$MODEL_COUNT" -eq 0 ]; then
