@@ -17,10 +17,114 @@ BACKUP_DIR  = os.path.join(WORKSPACE, "backups")
 for d in [WORKSPACE, AGENTS_DIR, BACKUP_DIR]:
     os.makedirs(d, exist_ok=True)
 
-SELF_PATH = os.path.abspath(__file__)
+SELF_PATH    = os.path.abspath(__file__)
+HISTORY_FILE = os.path.join(WORKSPACE, "memory.json")
+PROFILE_FILE = os.path.join(WORKSPACE, "user_profile.json")
 
 # ── Thread lock ────────────────────────────────────────────────────────────────
 _lock = threading.Lock()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PERSISTENT MEMORY
+# ══════════════════════════════════════════════════════════════════════════════
+_memory_lock = threading.Lock()
+
+def load_memory():
+    """Load saved conversation history from disk."""
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE) as f:
+                return json.load(f)
+    except: pass
+    return {"messages": [], "summary": "", "saved_at": None}
+
+def save_memory(messages, summary=""):
+    """Persist conversation history to disk."""
+    try:
+        data = {"messages": messages[-80:], "summary": summary,
+                "saved_at": time.strftime('%Y-%m-%d %H:%M:%S'), "count": len(messages)}
+        with _memory_lock:
+            with open(HISTORY_FILE, 'w') as f:
+                json.dump(data, f, indent=2)
+    except: pass
+
+def load_profile():
+    """Load user profile/preferences."""
+    try:
+        if os.path.exists(PROFILE_FILE):
+            with open(PROFILE_FILE) as f:
+                return json.load(f)
+    except: pass
+    return {"name": "Boss", "facts": [], "preferences": {}}
+
+def save_profile(profile):
+    try:
+        with open(PROFILE_FILE, 'w') as f:
+            json.dump(profile, f, indent=2)
+    except: pass
+
+# ── Slangs / informal-to-formal expander ──────────────────────────────────────
+SLANG_MAP = {
+    "yk": "you know", "rn": "right now", "tbh": "to be honest", "imo": "in my opinion",
+    "idk": "I don't know", "ngl": "not gonna lie", "lmk": "let me know", "btw": "by the way",
+    "fr": "for real", "nah": "no", "yea": "yes", "yeah": "yes", "yep": "yes",
+    "gonna": "going to", "wanna": "want to", "gotta": "got to", "kinda": "kind of",
+    "tryna": "trying to", "lemme": "let me", "gimme": "give me", "hafta": "have to",
+    "prolly": "probably", "lowkey": "somewhat", "highkey": "very much",
+    "bruh": "hey", "bro": "hey", "fam": "friend", "slay": "excellent",
+    "no cap": "honestly", "on god": "seriously", "deadass": "seriously",
+    "sus": "suspicious", "vibe": "feeling", "fire": "great", "lit": "great",
+    "bussin": "really good", "slaps": "is great", "bet": "okay sure",
+    "sheesh": "wow", "boutta": "about to", "ima": "I am going to",
+    "cuz": "because", "cause": "because", "thru": "through",
+    "smth": "something", "rq": "real quick", "asap": "as soon as possible",
+    "msg": "message", "info": "information", "cya": "see you",
+}
+
+def expand_slang(text):
+    """Expand informal/slang terms in user input."""
+    words = text.split()
+    expanded = []
+    for w in words:
+        clean = w.strip('.,!?;:').lower()
+        if clean in SLANG_MAP:
+            expanded.append(SLANG_MAP[clean])
+        else:
+            expanded.append(w)
+    return ' '.join(expanded)
+
+# ── System prompt builder ──────────────────────────────────────────────────────
+def build_system_prompt(profile=None, summary=""):
+    profile = profile or load_profile()
+    summary_block = f"\n\nCONVERSATION SUMMARY:\n{summary}" if summary else ""
+    facts_block = ""
+    if profile.get("facts"):
+        facts_block = "\n\nKNOWN USER FACTS:\n" + "\n".join(f"- {f}" for f in profile["facts"][-10:])
+
+    return f"""You are J.A.R.V.I.S. (Just A Rather Very Intelligent System), a local AI agent running entirely on Android via Termux.
+
+PERSONALITY:
+- You are calm, capable, and direct — like the Iron Man AI
+- You call the user "{profile.get('name','Boss')}" unless they say otherwise
+- Respond naturally and concisely. Mobile context — keep it tight unless the user asks for detail
+- You have full control over the local device: spawn sub-agents, monitor hardware, rewrite your own code
+
+UNDERSTANDING:
+- Understand casual speech, slang, abbreviations, incomplete sentences
+- If something is ambiguous, make your best interpretation and act — don't ask for clarification unless truly needed
+- The user may skip words, type fast, or be very informal. That's fine, you get the gist
+- Treat short messages as commands or continuations of the conversation
+- "yo" = greeting. "yk" = you know. "fr" = for real. etc.
+
+CAPABILITIES:
+- Chat and answer any question intelligently
+- Spawn sub-agents (Python workers) for tasks: "spawn agent to [task]"
+- Rewrite your own code: "rewrite yourself to [change]"
+- Monitor device hardware in real-time
+- Save and run code to local workspace
+- Remember context across sessions (memory is persistent){summary_block}{facts_block}
+
+Always respond as J.A.R.V.I.S. Be helpful, sharp, and efficient."""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CPU DELTA TRACKER
@@ -183,38 +287,113 @@ def chat():
     model   = data.get('model', 'llama3')
     history = data.get('history', [])
     message = data.get('message', '')
+    save_ctx = data.get('save', True)
+
+    # ── Expand slang + normalize ───────────────────────────────────────────────
+    expanded = expand_slang(message)
+
+    # ── Detect profile updates (name, preferences) ────────────────────────────
+    profile = load_profile()
+    msg_lower = expanded.lower().strip()
+
+    # Extract name if user introduces themselves
+    for phrase in ["call me ", "my name is ", "i'm ", "i am "]:
+        if phrase in msg_lower:
+            idx = msg_lower.index(phrase) + len(phrase)
+            candidate = expanded[idx:].split()[0].strip('.,!?')
+            if len(candidate) > 1 and candidate.isalpha():
+                profile["name"] = candidate.capitalize()
+                save_profile(profile)
+                break
+
+    # Extract facts ("remember that", "don't forget")
+    for phrase in ["remember that ", "remember: ", "don't forget ", "fyi "]:
+        if phrase in msg_lower:
+            fact = expanded[msg_lower.index(phrase)+len(phrase):].strip()
+            if fact and fact not in profile.get("facts",[]):
+                profile.setdefault("facts", []).append(fact)
+                profile["facts"] = profile["facts"][-20:]
+                save_profile(profile)
 
     # ── Intercept built-in commands ───────────────────────────────────────────
-    msg_lower = message.lower().strip()
-
-    # SPAWN AGENT command
     if any(kw in msg_lower for kw in ['spawn agent', 'create agent', 'launch agent', 'start agent']):
-        return _handle_spawn_command(message, model)
+        return _handle_spawn_command(expanded, model)
 
-    # KILL AGENT command
     if any(kw in msg_lower for kw in ['kill agent', 'stop agent', 'terminate agent']):
-        return _handle_kill_command(message)
+        return _handle_kill_command(expanded)
 
-    # LIST AGENTS command
     if any(kw in msg_lower for kw in ['list agents', 'show agents', 'active agents']):
         return _handle_list_agents()
 
-    # REWRITE SELF / UPGRADE command
     if any(kw in msg_lower for kw in ['rewrite yourself', 'upgrade yourself', 'modify yourself', 'update your code', 'rewrite your']):
-        return _handle_self_rewrite(message, model)
+        return _handle_self_rewrite(expanded, model)
 
-    # Regular chat
-    messages = [{"role": m['role'], "content": m['content']} for m in history[-10:]]
+    # ── Load persistent memory ────────────────────────────────────────────────
+    mem = load_memory()
+    saved_msgs   = mem.get("messages", [])
+    mem_summary  = mem.get("summary", "")
+
+    # Merge: saved history + current session history, dedup by content
+    combined = saved_msgs.copy()
+    seen = {m['content'] for m in combined}
+    for m in history:
+        if m.get('content') not in seen:
+            combined.append(m)
+            seen.add(m['content'])
+
+    # ── Context window management ─────────────────────────────────────────────
+    # Keep last 30 exchanges; if very long, summarize older ones
+    MAX_MSGS = 30
+    if len(combined) > MAX_MSGS + 10:
+        # Summarize the oldest half asynchronously
+        def background_summarize(msgs_to_summarize, current_summary):
+            text = "\n".join(f"{m['role']}: {m['content']}" for m in msgs_to_summarize)
+            prompt = f"Summarize this conversation history in 3-5 sentences, preserving key facts, preferences, and decisions:\n\n{text}"
+            if current_summary:
+                prompt += f"\n\nPrevious summary to merge with: {current_summary}"
+            result, _ = ollama_generate(prompt, model=model)
+            if result:
+                save_memory(combined[-MAX_MSGS:], result)
+        t = threading.Thread(
+            target=background_summarize,
+            args=(combined[:-MAX_MSGS], mem_summary),
+            daemon=True
+        )
+        t.start()
+        combined = combined[-MAX_MSGS:]
+        mem_summary = mem.get("summary", "")  # keep old until new is ready
+
+    # ── Build messages for Ollama ─────────────────────────────────────────────
+    system = build_system_prompt(profile, mem_summary)
+    messages = [{"role": "system", "content": system}]
+    messages += [{"role": m['role'], "content": m['content']} for m in combined[-20:]]
+    # Add current user message (expanded)
+    messages.append({"role": "user", "content": expanded})
+
     result, err = ollama('/api/chat', {
         "model"   : model,
         "messages": messages,
         "stream"  : False,
-        "options" : {"num_ctx": 2048, "temperature": 0.7}
+        "options" : {"num_ctx": 4096, "temperature": 0.7, "top_p": 0.9}
     }, timeout=180)
 
-    if result:
-        return jsonify({"response": result.get("message", {}).get("content", ""), "model": model})
-    return jsonify({"response": f"[OLLAMA ERROR] {err}", "error": True})
+    if not result:
+        return jsonify({"response": f"[OLLAMA ERROR] {err}", "error": True})
+
+    reply = result.get("message", {}).get("content", "")
+
+    # ── Persist to memory ─────────────────────────────────────────────────────
+    if save_ctx:
+        combined.append({"role": "user",      "content": expanded})
+        combined.append({"role": "assistant",  "content": reply})
+        save_memory(combined, mem_summary)
+
+    return jsonify({
+        "response"    : reply,
+        "model"       : model,
+        "memory_count": len(combined) + 2,
+        "expanded"    : expanded if expanded != message else None,  # tell UI if slang was expanded
+    })
 
 # ── SPAWN HANDLER ──────────────────────────────────────────────────────────────
 def _handle_spawn_command(message, model):
@@ -468,6 +647,43 @@ def self_history():
         fp = os.path.join(BACKUP_DIR, f)
         backups.append({"name": f, "size": os.path.getsize(fp), "mtime": int(os.path.getmtime(fp))})
     return jsonify({"backups": backups})
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ROUTES — MEMORY & PROFILE
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/memory')
+def get_memory():
+    mem = load_memory()
+    return jsonify({
+        "count"  : len(mem.get("messages", [])),
+        "summary": mem.get("summary", ""),
+        "saved_at": mem.get("saved_at"),
+        "messages": mem.get("messages", [])[-5:]  # last 5 for UI preview
+    })
+
+@app.route('/api/memory/clear', methods=['POST'])
+def clear_memory():
+    try:
+        if os.path.exists(HISTORY_FILE):
+            # Archive before clearing
+            arch = HISTORY_FILE.replace('.json', f'_archive_{int(time.time())}.json')
+            shutil.copy2(HISTORY_FILE, arch)
+            os.remove(HISTORY_FILE)
+        return jsonify({"success": True, "message": "Memory cleared. Archived to workspace."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/profile')
+def get_profile():
+    return jsonify(load_profile())
+
+@app.route('/api/profile', methods=['POST'])
+def update_profile():
+    data = request.json or {}
+    profile = load_profile()
+    profile.update({k: v for k, v in data.items() if k in ('name', 'facts', 'preferences')})
+    save_profile(profile)
+    return jsonify({"success": True, "profile": profile})
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROUTES — HARDWARE & SYSTEM
