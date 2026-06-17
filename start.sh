@@ -164,6 +164,20 @@ if [ "$OLLAMA_OK" = "true" ]; then
         echo "[*] Models available: $MODEL_COUNT"
         ollama list 2>/dev/null | tail -n +2 | awk '{print "    • "$1}'
         echo "[*] Active model: $MODEL"
+        # Create jarvis wrapper if it doesn't already exist
+        if ! ollama list 2>/dev/null | grep -q "^jarvis"; then
+            echo "[*] Creating uncensored jarvis model..."
+            printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
+            if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>/dev/null; then
+                echo "[✓] jarvis model created (uncensored)"
+                MODEL="jarvis"
+            else
+                echo "[!] Could not create jarvis model — using $MODEL"
+            fi
+        else
+            MODEL="jarvis"
+            echo "[✓] jarvis model already exists"
+        fi
     fi
 fi
 
