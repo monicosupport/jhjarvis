@@ -116,11 +116,23 @@ if [ "$OLLAMA_OK" = "true" ]; then
         echo "[*] Ollama: already running"
     fi
 
-    # Pull recommended model if nothing installed
+    # Pull recommended model if nothing installed — SYNCHRONOUS so it's ready before the browser opens
     MODEL_COUNT=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
     if [ "$MODEL_COUNT" -eq 0 ]; then
-        echo "[*] Pulling $MODEL in background (watch: tail -f $LOG_DIR/pull.log)"
-        ollama pull "$MODEL" > "$LOG_DIR/pull.log" 2>&1 &
+        echo ""
+        echo "╔══════════════════════════════════════════════╗"
+        echo "║  No models found — pulling $MODEL"
+        echo "║  This may take 2–10 minutes on first run.    "
+        echo "║  Progress shown below. Please wait...        "
+        echo "╚══════════════════════════════════════════════╝"
+        echo ""
+        ollama pull "$MODEL"
+        PULL_EXIT=$?
+        if [ "$PULL_EXIT" -ne 0 ]; then
+            echo "[!] Pull failed (exit $PULL_EXIT). Trying tinyllama as fallback..."
+            ollama pull tinyllama
+        fi
+        echo "[✓] Model ready"
     else
         echo "[*] Models available: $MODEL_COUNT"
         ollama list 2>/dev/null | tail -n +2 | awk '{print "    • "$1}'
