@@ -401,6 +401,13 @@
     <!-- Messages -->
     <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-3" style="scroll-behavior:smooth"></div>
 
+    <!-- No-model pull banner (hidden until needed) -->
+    <div id="pull-bar" class="hidden flex-shrink-0 border-t border-yellow-500/30 bg-yellow-900/20 px-4 py-2.5 flex items-center gap-3">
+      <span class="text-yellow-400 text-xs">⚠</span>
+      <span class="mono text-[10px] text-yellow-300 flex-1">No AI model installed</span>
+      <button onclick="triggerPull(suggestedModel)" class="mono text-[9px] px-3 py-1 rounded border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20 active:scale-95 transition-all">PULL MODEL</button>
+    </div>
+
     <!-- Input area -->
     <div class="border-t border-[#00f3ff]/10 p-3 flex-shrink-0">
       <div class="flex gap-2 items-end">
@@ -452,11 +459,27 @@
 <!-- ═══════════════════════ WAKE BAR ════════════════════════════ -->
 <div id="wake-bar">
   <div class="wdot"></div>
-  <span id="wake-label">WAKE WORD: "HEY JARVIS" — LISTENING</span>
+  <span id="wake-label">TAP 🎤 TO ACTIVATE VOICE  •  OR TYPE BELOW</span>
   <div class="ml-auto flex items-center gap-3 mono text-[9px]">
     <span>VOICE: <span id="voice-status" class="text-[#00f3ff]/60">OFF</span></span>
   </div>
 </div>
+
+<!-- Mobile bottom tab bar -->
+<nav class="md:hidden flex items-center justify-around px-4 py-2 border-t border-[#00f3ff]/10 bg-[#020817] flex-shrink-0">
+  <button onclick="togglePanel('left')" class="flex flex-col items-center gap-0.5 text-[#00f3ff]/50 hover:text-[#00f3ff] transition-colors px-3 py-1">
+    <i class="fas fa-chart-bar text-base"></i>
+    <span class="mono text-[8px]">SYSTEM</span>
+  </button>
+  <button onclick="clearPanel()" class="flex flex-col items-center gap-0.5 text-[#00f3ff]/80 hover:text-[#00f3ff] transition-colors px-3 py-1">
+    <i class="fas fa-comment-dots text-base"></i>
+    <span class="mono text-[8px]">CHAT</span>
+  </button>
+  <button onclick="togglePanel('right')" class="flex flex-col items-center gap-0.5 text-[#00f3ff]/50 hover:text-[#00f3ff] transition-colors px-3 py-1">
+    <i class="fas fa-robot text-base"></i>
+    <span class="mono text-[8px]">AGENTS</span>
+  </button>
+</nav>
 
 <!-- ═══════════════════════ MEMORY MODAL ════════════════════════ -->
 <div id="mem-modal" class="modal-bg hidden">
@@ -493,6 +516,7 @@ const TTS_CFG = { rate:.92, pitch:.8, vol:1 };
 
 let online = false;
 let model  = '';
+let suggestedModel = 'llama3.2:1b';
 let history = [];
 let recognition = null;
 let synth = window.speechSynthesis;
@@ -619,9 +643,15 @@ async function loadModels() {
       const opt = document.createElement('option');
       opt.value = ''; opt.textContent = `Pulling ${d.suggested||'llama3.2:1b'}…`;
       sel.appendChild(opt);
-      $('hdr-model').textContent = 'PULLING…';
-      sysLog(`No models — auto-pulling ${d.suggested||'llama3.2:1b'}`, 'warn');
-      triggerPull(d.suggested || 'llama3.2:1b');
+      $('hdr-model').textContent = 'NO MODEL';
+      suggestedModel = d.suggested || 'llama3.2:1b';
+      $('pull-bar').classList.remove('hidden');
+      $('pull-bar').style.display = 'flex';
+      sysLog(`No models — tap PULL MODEL button`, 'warn');
+    }
+    if (d.models && d.models.length) {
+      $('pull-bar').classList.add('hidden');
+      $('pull-bar').style.display = 'none';
     }
   } catch(e) { sysLog('Model list failed: '+e, 'err'); }
 }
@@ -842,26 +872,35 @@ function initVoice() {
     try { recognition.start(); } catch {}
   };
 
-  // Start passive wake-word listening
-  try {
-    recognition.start();
-    $('voice-status').textContent = 'ON';
-    $('voice-status').style.color = 'rgba(52,211,153,.8)';
-    sysLog('Voice wake-word active','ok');
-  } catch {}
+  // DO NOT auto-start — Chrome Android blocks mic without user gesture.
+  // Voice activates only when user taps the mic button.
+  sysLog('Voice ready — tap 🎤 to activate','info');
 }
 
 function toggleMic() {
-  micActive = !micActive;
-  const btn = $('mic-btn');
   if (micActive) {
-    btn.classList.add('active');
-    setWakeBar('listening');
-    sysLog('Mic activated — speak now','ok');
-  } else {
-    btn.classList.remove('active');
+    // Stop
+    micActive = false;
+    if (recognition) { try { recognition.stop(); } catch {} }
+    $('mic-btn').classList.remove('active');
     setWakeBar('idle');
+    $('voice-status').textContent = 'OFF';
     sysLog('Mic deactivated','info');
+  } else {
+    // Request permission then start
+    navigator.mediaDevices.getUserMedia({audio: true})
+      .then(() => {
+        micActive = true;
+        $('mic-btn').classList.add('active');
+        setWakeBar('listening');
+        $('voice-status').textContent = 'ON';
+        $('voice-status').style.color = '#34d399';
+        sysLog('Mic active — say "Hey Jarvis" or just speak','ok');
+        if (recognition) { try { recognition.start(); } catch {} }
+      })
+      .catch(() => {
+        addMsg('sys','Microphone permission denied. In Chrome, tap the lock icon in the address bar → allow microphone.','err');
+      });
   }
 }
 
@@ -897,6 +936,14 @@ function togglePanel(side) {
   const el = $(side === 'left' ? 'sidebar-left' : 'sidebar-right');
   el.classList.toggle('mob-show');
   el.style.display = el.classList.contains('mob-show') ? 'flex' : '';
+}
+
+function clearPanel() {
+  ['sidebar-left','sidebar-right'].forEach(id => {
+    const el = $(id);
+    el.classList.remove('mob-show');
+    el.style.display = '';
+  });
 }
 
 // ── Boot ─────────────────────────────────────────────────────────
