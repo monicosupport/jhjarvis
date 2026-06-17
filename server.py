@@ -471,36 +471,38 @@ def chat():
     def generate():
         full_reply = []
         try:
-            r = requests.post(
-                f"{OLLAMA}/api/chat",
-                json={
-                    "model"   : _model,
-                    "messages": messages,
-                    "stream"  : True,
-                    "options" : {"num_ctx": num_ctx, "temperature": 0.7, "top_p": 0.9}
-                },
-                stream=True, timeout=180
+            payload = json.dumps({
+                "model"   : _model,
+                "messages": messages,
+                "stream"  : True,
+                "options" : {"num_ctx": num_ctx, "temperature": 0.7, "top_p": 0.9}
+            }).encode()
+            req = urllib.request.Request(
+                f"{OLLAMA_BASE}/api/chat", data=payload,
+                headers={"Content-Type": "application/json"}
             )
-            for raw in r.iter_lines():
-                if not raw:
-                    continue
-                try:
-                    chunk = json.loads(raw)
-                except Exception:
-                    continue
-                token = chunk.get("message", {}).get("content", "")
-                if token:
-                    full_reply.append(token)
-                    yield f"data: {json.dumps({'token': token})}\n\n"
-                if chunk.get("done"):
-                    reply_str = "".join(full_reply)
-                    if _save and reply_str:
-                        _combined.append({"role": "user",      "content": _expanded})
-                        _combined.append({"role": "assistant", "content": reply_str})
-                        threading.Thread(
-                            target=save_memory, args=(_combined, _summary), daemon=True
-                        ).start()
-                    yield f"data: {json.dumps({'done': True, 'model': _model, 'memory_count': len(_combined) + 2})}\n\n"
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                for raw in resp:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        chunk = json.loads(raw)
+                    except Exception:
+                        continue
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        full_reply.append(token)
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                    if chunk.get("done"):
+                        reply_str = "".join(full_reply)
+                        if _save and reply_str:
+                            _combined.append({"role": "user",      "content": _expanded})
+                            _combined.append({"role": "assistant", "content": reply_str})
+                            threading.Thread(
+                                target=save_memory, args=(_combined, _summary), daemon=True
+                            ).start()
+                        yield f"data: {json.dumps({'done': True, 'model': _model, 'memory_count': len(_combined) + 2})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': True, 'response': f'[OLLAMA ERROR] {str(e)}'})}\n\n"
 
