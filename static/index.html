@@ -802,14 +802,19 @@ async function send() {
 
   let aiEl    = null;
   let fullText = '';
+  // Show "loading model" hint if cold-start takes > 8s
+  const slowTimer = setTimeout(() => {
+    if (!aiEl) addMsg('sys', '⏳ Model loading — first response takes 10–30s on mobile…', 'warn');
+  }, 8000);
+
   try {
     const r = await fetch(`${BASE}/api/chat`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message:msg, model:model||'llama3.2:1b', history:history.slice(-18), save:true})
+      body: JSON.stringify({message:msg, model:model||'jarvis', history:history.slice(-18), save:true})
     });
 
-    hideTyping();  // hide spinner as soon as first byte arrives
+    // Keep spinner alive — hide only when first token actually arrives
 
     const reader = r.body.getReader();
     const dec    = new TextDecoder();
@@ -826,21 +831,24 @@ async function send() {
         let d; try { d = JSON.parse(line.slice(6)); } catch(e) { continue; }
 
         if (d.pulling) {
+          clearTimeout(slowTimer); hideTyping();
           if (!pullTimer) triggerPull(d.pulling);
           addMsg('sys', d.response || 'Pulling model — try again in a minute.', 'warn');
           break;
         }
         if (d.error) {
+          clearTimeout(slowTimer); hideTyping();
           addMsg('sys', d.response || 'Error', 'err');
           break;
         }
         if (d.token) {
-          if (!aiEl) { aiEl = addMsg('ai', ''); }
+          if (!aiEl) { clearTimeout(slowTimer); hideTyping(); aiEl = addMsg('ai', ''); }
           fullText += d.token;
           aiEl.querySelector('.msg-content').innerHTML = escHtml(fullText);
           ch.scrollTop = ch.scrollHeight;
         }
         if (d.done) {
+          clearTimeout(slowTimer); hideTyping();
           history.push({role:'assistant', content: fullText});
           if (d.memory_count) { memCount = d.memory_count; $('hdr-mem').textContent = memCount; }
           speak(fullText);
@@ -849,7 +857,7 @@ async function send() {
     }
 
   } catch(e) {
-    hideTyping();
+    clearTimeout(slowTimer); hideTyping();
     addMsg('sys', 'Connection error: '+e.message, 'err');
   }
 }
