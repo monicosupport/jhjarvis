@@ -3,950 +3,915 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>J.A.R.V.I.S. — Local AI</title>
+<title>J.A.R.V.I.S.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   :root {
-    --c: #00d4ff;       /* primary cyan */
-    --g: #00ff9d;       /* accent green */
-    --p: #bd00ff;       /* accent purple */
-    --r: #ff003c;       /* danger red */
-    --o: #ff8c00;       /* warning orange */
-    --bg: #020a14;
-    --bg2: #040e1c;
-    --glass: rgba(0,212,255,.06);
-    --glow: 0 0 20px rgba(0,212,255,.25);
+    --c: #00f3ff;
+    --c2: #0099cc;
+    --p: #818cf8;
+    --g: #34d399;
+    --r: #f87171;
+    --y: #fbbf24;
+    --bg: #020817;
+    --panel: rgba(2, 15, 35, 0.85);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; background: var(--bg); color: #c8e8f0; font-family: 'Exo 2', sans-serif; }
 
-  /* ── Scanline overlay ── */
-  body::before {
-    content:''; position:fixed; inset:0; z-index:9999; pointer-events:none;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px);
-  }
-
-  /* ── Grid background ── */
-  body::after {
-    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
-    background-image:
-      linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
-    background-size: 60px 60px;
-    animation: gridShift 20s linear infinite;
-  }
-  @keyframes gridShift { to { background-position: 60px 60px; } }
-
-  /* ── Glass panels ── */
-  .panel {
-    background: linear-gradient(135deg, rgba(0,212,255,.05), rgba(0,0,0,.4));
-    border: 1px solid rgba(0,212,255,.15);
-    backdrop-filter: blur(8px);
-    position: relative;
-    border-radius: 12px;
+  body {
+    background: var(--bg);
+    color: #e2e8f0;
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
-  .panel::before {
-    content:''; position:absolute; inset:0; border-radius:inherit;
-    background: linear-gradient(135deg, rgba(0,212,255,.06) 0%, transparent 50%);
-    pointer-events:none;
-  }
-  .panel-purple { border-color: rgba(189,0,255,.2); background: linear-gradient(135deg, rgba(189,0,255,.05), rgba(0,0,0,.4)); }
-  .panel-purple::before { background: linear-gradient(135deg, rgba(189,0,255,.06) 0%, transparent 50%); }
-  .panel-green  { border-color: rgba(0,255,157,.2); background: linear-gradient(135deg, rgba(0,255,157,.04), rgba(0,0,0,.4)); }
-  .panel-green::before  { background: linear-gradient(135deg, rgba(0,255,157,.05) 0%, transparent 50%); }
 
-  .panel-header {
-    padding: 10px 16px;
-    border-bottom: 1px solid rgba(0,212,255,.1);
-    display: flex; align-items: center; gap: 8px;
-    font-family: 'Orbitron', monospace;
-    font-size: 10px; letter-spacing: .2em; color: rgba(0,212,255,.7);
-    text-transform: uppercase;
+  /* ── Animated background ───────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,243,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,243,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
   }
-  .panel-header .dot { width:6px; height:6px; border-radius:50%; background:var(--c); box-shadow:0 0 6px var(--c); }
-  .panel-header.green  { border-color:rgba(0,255,157,.1); color:rgba(0,255,157,.7); }
-  .panel-header.green  .dot { background:var(--g); box-shadow:0 0 6px var(--g); }
-  .panel-header.purple { border-color:rgba(189,0,255,.15); color:rgba(189,0,255,.7); }
-  .panel-header.purple .dot { background:var(--p); box-shadow:0 0 6px var(--p); }
 
-  /* ── HUD text styles ── */
+  /* ── Scan line ────────────────────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,243,255,0.4), transparent);
+    animation: scanline 6s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+  @keyframes scanline { 0%{top:-2px} 100%{top:100vh} }
+
   .orb  { font-family: 'Orbitron', monospace; }
   .mono { font-family: 'Share Tech Mono', monospace; }
 
-  /* ── Glow effects ── */
-  .glow-c { text-shadow: 0 0 12px var(--c), 0 0 24px rgba(0,212,255,.4); }
-  .glow-g { text-shadow: 0 0 12px var(--g), 0 0 24px rgba(0,255,157,.4); }
-  .glow-p { text-shadow: 0 0 12px var(--p), 0 0 24px rgba(189,0,255,.4); }
-
-  /* ── Core orb canvas ── */
-  #orb-canvas { position:absolute; inset:0; width:100%; height:100%; }
-
-  /* ── Chat ── */
-  #chat-log {
-    flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;
-    scroll-behavior:smooth;
-  }
-  #chat-log::-webkit-scrollbar { width:4px; }
-  #chat-log::-webkit-scrollbar-track { background: transparent; }
-  #chat-log::-webkit-scrollbar-thumb { background: rgba(0,212,255,.25); border-radius:2px; }
-
-  .msg {
-    max-width: 86%;
-    padding: 10px 14px;
-    border-radius: 12px;
-    font-size: 13px;
-    line-height: 1.55;
+  /* ── Glass panel ──────────────────────────────────────────── */
+  .glass {
+    background: var(--panel);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0,243,255,0.12);
+    border-radius: 8px;
     position: relative;
-    animation: msgIn .25s ease;
+    overflow: hidden;
   }
-  @keyframes msgIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,243,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
 
+  /* ── Corner accents ───────────────────────────────────────── */
+  .corner::before, .corner::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: var(--c);
+    border-style: solid;
+  }
+  .corner::before { top: 4px; left: 4px; border-width: 1px 0 0 1px; }
+  .corner::after  { bottom: 4px; right: 4px; border-width: 0 1px 1px 0; }
+
+  /* ── Scrollbar ────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,243,255,0.3); border-radius: 2px; }
+
+  /* ── Animations ───────────────────────────────────────────── */
+  @keyframes spin-slow  { to { transform: rotate(360deg); } }
+  @keyframes spin-rev   { to { transform: rotate(-360deg); } }
+  @keyframes pulse-glow { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+  @keyframes blink      { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes fade-in    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes bar-fill   { from{width:0} to{width:var(--w)} }
+  @keyframes typing     { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+
+  .spin-cw  { animation: spin-slow 12s linear infinite; }
+  .spin-ccw { animation: spin-rev 8s linear infinite; }
+  .pulse    { animation: pulse-glow 2.5s ease-in-out infinite; }
+  .blink    { animation: blink 1.8s ease-in-out infinite; }
+  .fade-in  { animation: fade-in .35s ease forwards; }
+
+  /* ── Status dot ───────────────────────────────────────────── */
+  .dot-online  { background: var(--g); box-shadow: 0 0 8px var(--g); }
+  .dot-offline { background: var(--r); box-shadow: 0 0 8px var(--r); animation: blink 1s infinite; }
+  .dot-warn    { background: var(--y); box-shadow: 0 0 8px var(--y); }
+
+  /* ── Chat bubbles ──────────────────────────────────────────── */
   .msg-user {
-    align-self: flex-end;
-    background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(0,212,255,.07));
-    border: 1px solid rgba(0,212,255,.3);
-    color: #d0f0ff;
+    background: rgba(0,243,255,0.07);
+    border-left: 2px solid var(--c);
+    border-radius: 0 8px 8px 0;
+    margin-left: auto;
+    max-width: 88%;
   }
-  .msg-user::after {
-    content:''; position:absolute; bottom:10px; right:-6px;
-    border: 6px solid transparent;
-    border-left-color: rgba(0,212,255,.3);
-  }
-
   .msg-ai {
-    align-self: flex-start;
-    background: linear-gradient(135deg, rgba(189,0,255,.1), rgba(0,0,0,.3));
-    border: 1px solid rgba(189,0,255,.25);
-    color: #e8d8ff;
+    background: rgba(129,140,248,0.08);
+    border-left: 2px solid var(--p);
+    border-radius: 0 8px 8px 0;
+    max-width: 92%;
   }
-  .msg-ai::after {
-    content:''; position:absolute; bottom:10px; left:-6px;
-    border: 6px solid transparent;
-    border-right-color: rgba(189,0,255,.25);
-  }
-
   .msg-sys {
-    align-self: center;
-    background: rgba(0,212,255,.05);
-    border: 1px solid rgba(0,212,255,.12);
-    color: rgba(0,212,255,.5);
-    font-size: 10px;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing:.08em;
-    border-radius: 6px;
-    padding: 4px 10px;
+    background: rgba(251,191,36,0.06);
+    border-left: 2px solid rgba(251,191,36,0.5);
+    border-radius: 0 6px 6px 0;
     max-width: 100%;
-    text-align: center;
+    font-size: .75rem;
+  }
+  .msg-err {
+    background: rgba(248,113,113,0.08);
+    border-left: 2px solid var(--r);
+    border-radius: 0 8px 8px 0;
+    max-width: 92%;
   }
 
-  .msg-label {
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    letter-spacing: .15em;
-    margin-bottom: 4px;
-    opacity: .6;
-  }
+  /* ── Typing dots ──────────────────────────────────────────── */
+  .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--p); animation: typing 1.2s infinite ease-in-out both; }
+  .typing-dot:nth-child(2) { animation-delay:.2s }
+  .typing-dot:nth-child(3) { animation-delay:.4s }
 
-  /* ── Typing indicator ── */
-  .typing-dot { width:6px; height:6px; border-radius:50%; background:var(--p); animation: blink 1.2s infinite; }
-  .typing-dot:nth-child(2) { animation-delay:.2s; }
-  .typing-dot:nth-child(3) { animation-delay:.4s; }
-  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+  /* ── Metric bar ───────────────────────────────────────────── */
+  .bar-track { background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; height: 5px; }
+  .bar-fill  { height: 100%; border-radius: 4px; transition: width .8s ease; }
 
-  /* ── Input bar ── */
-  #input-bar {
-    padding: 12px 16px;
-    border-top: 1px solid rgba(0,212,255,.1);
-    display: flex; gap: 8px; align-items: center;
-    background: linear-gradient(0deg, rgba(0,0,0,.4), transparent);
-  }
-  #msg-input {
-    flex:1; background: rgba(0,212,255,.06); border: 1px solid rgba(0,212,255,.2);
-    border-radius: 8px; padding: 10px 14px; color: #c8e8f0; font-size:13px;
-    font-family:'Exo 2',sans-serif; outline:none; resize:none; min-height:42px; max-height:100px;
+  /* ── Input ────────────────────────────────────────────────── */
+  #input-box {
+    background: rgba(0,243,255,0.04);
+    border: 1px solid rgba(0,243,255,0.2);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    outline: none;
     transition: border-color .2s;
+    resize: none;
+    line-height: 1.4;
   }
-  #msg-input:focus { border-color: rgba(0,212,255,.5); box-shadow: 0 0 0 2px rgba(0,212,255,.08); }
-  #msg-input::placeholder { color: rgba(0,212,255,.25); }
+  #input-box:focus { border-color: rgba(0,243,255,0.5); }
+  #input-box::placeholder { color: rgba(0,243,255,0.3); }
 
-  .btn-icon {
-    width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center;
-    border:1px solid; cursor:pointer; transition:.2s; font-size:14px; flex-shrink:0;
+  /* ── Btn ──────────────────────────────────────────────────── */
+  .btn {
+    border: 1px solid rgba(0,243,255,0.25);
+    border-radius: 6px;
+    color: rgba(0,243,255,0.7);
+    cursor: pointer;
+    font-family: 'Orbitron', monospace;
+    font-size: .6rem;
+    letter-spacing: .1em;
+    padding: 6px 12px;
+    transition: all .2s;
+    background: transparent;
   }
-  #mic-btn  { border-color:rgba(0,255,157,.3); color:rgba(0,255,157,.7); background:rgba(0,255,157,.06); }
-  #mic-btn:hover  { background:rgba(0,255,157,.14); color:var(--g); }
-  #mic-btn.active { background:rgba(0,255,157,.2); color:var(--g); box-shadow:0 0 12px rgba(0,255,157,.4); animation:micPulse .8s infinite; }
-  @keyframes micPulse { 50%{ box-shadow:0 0 20px rgba(0,255,157,.6); } }
-  #send-btn { border-color:rgba(0,212,255,.3); color:rgba(0,212,255,.7); background:rgba(0,212,255,.06); }
-  #send-btn:hover { background:rgba(0,212,255,.14); color:var(--c); }
-  #send-btn:active { transform:scale(.95); }
-
-  /* ── Metric bars ── */
-  .metric-bar {
-    height: 4px; border-radius: 2px; background: rgba(255,255,255,.07); overflow:hidden;
+  .btn:hover { background: rgba(0,243,255,0.1); color: var(--c); border-color: var(--c); }
+  .btn-send {
+    background: rgba(0,243,255,0.15);
+    border-color: var(--c);
+    color: var(--c);
+    padding: 10px 20px;
+    font-size: .65rem;
   }
-  .metric-bar-fill {
-    height: 100%; border-radius: 2px;
-    background: linear-gradient(90deg, var(--c), rgba(0,212,255,.5));
-    transition: width .5s ease;
+  .btn-send:hover { background: rgba(0,243,255,0.25); }
+  .btn-mic {
+    border-color: rgba(129,140,248,0.4);
+    color: rgba(129,140,248,0.7);
+    padding: 10px 14px;
   }
-  .metric-bar-fill.warn  { background: linear-gradient(90deg, var(--o), rgba(255,140,0,.5)); }
-  .metric-bar-fill.crit  { background: linear-gradient(90deg, var(--r), rgba(255,0,60,.5)); }
+  .btn-mic.active { background: rgba(129,140,248,0.2); color: var(--p); border-color: var(--p); animation: pulse-glow 1s infinite; }
 
-  /* ── Stat boxes ── */
-  .stat-box {
-    background: rgba(0,212,255,.05); border:1px solid rgba(0,212,255,.1);
-    border-radius:8px; padding:8px 10px; text-align:center;
-  }
-  .stat-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:var(--c); }
-  .stat-lbl { font-family:'Share Tech Mono',monospace; font-size:9px; color:rgba(0,212,255,.4); margin-top:2px; letter-spacing:.12em; }
-
-  /* ── Log entries ── */
-  .log-entry { font-family:'Share Tech Mono',monospace; font-size:10px; padding:3px 0; border-bottom:1px solid rgba(0,212,255,.05); }
-  .log-ok   { color:rgba(0,255,157,.7); }
-  .log-warn { color:rgba(255,140,0,.8); }
-  .log-err  { color:rgba(255,0,60,.8); }
-  .log-info { color:rgba(0,212,255,.5); }
-
-  /* ── Agent chip ── */
-  .agent-chip {
-    background: rgba(0,255,157,.06); border:1px solid rgba(0,255,157,.2); border-radius:6px;
-    padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:11px;
-  }
-  .agent-chip .status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-  .agent-chip .status-dot.run  { background:var(--g); box-shadow:0 0 6px var(--g); animation:statusPulse 1.5s infinite; }
-  .agent-chip .status-dot.done { background:rgba(0,212,255,.5); }
-  .agent-chip .status-dot.fail { background:var(--r); }
-  @keyframes statusPulse { 50%{ opacity:.4; } }
-
-  /* ── Animations ── */
-  .spin-slow  { animation: spin 12s linear infinite; }
-  .spin-fast  { animation: spin 4s linear infinite; }
-  .spin-rev   { animation: spin 8s linear infinite reverse; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .pulse-ring {
-    position:absolute; inset:-8px; border-radius:50%;
-    border: 1px solid rgba(0,212,255,.3);
-    animation: pulseRing 2.5s ease-out infinite;
-  }
-  .pulse-ring:nth-child(2) { animation-delay:.8s; }
-  .pulse-ring:nth-child(3) { animation-delay:1.6s; }
-  @keyframes pulseRing { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(1.5);opacity:0} }
-
-  /* ── Status indicator ── */
-  #status-pill {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:3px 10px; border-radius:20px;
-    font-family:'Orbitron',monospace; font-size:9px; letter-spacing:.15em;
-    border: 1px solid rgba(255,140,0,.4); background:rgba(255,140,0,.08); color:rgba(255,140,0,.8);
-    transition:.4s;
-  }
-  #status-pill.online { border-color:rgba(0,255,157,.4); background:rgba(0,255,157,.08); color:rgba(0,255,157,.8); }
-  #status-pill .blink-dot { width:5px; height:5px; border-radius:50%; background:currentColor; animation:blink 1.2s infinite; }
-
-  /* ── Wake word indicator ── */
-  #wake-bar { height:2px; background:transparent; transition:.3s; }
-  #wake-bar.active { background:linear-gradient(90deg,transparent,var(--g),transparent); box-shadow:0 0 8px var(--g); }
-
-  /* ── Model selector ── */
-  #model-sel {
-    background:rgba(0,212,255,.05); border:1px solid rgba(0,212,255,.15);
-    border-radius:6px; padding:4px 8px; color:rgba(0,212,255,.7); font-size:11px;
-    font-family:'Share Tech Mono',monospace; outline:none; cursor:pointer;
-    appearance:none; -webkit-appearance:none;
+  /* ── Tag badge ────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Orbitron', monospace;
+    font-size: .55rem; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 4px;
   }
 
-  /* ── Mobile ── */
-  @media (max-width:768px) {
-    #sidebar-left, #sidebar-right { display:none; }
-    #main-col { flex:1 !important; }
-    .msg { max-width:96%; }
+  /* ── Mobile ───────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    #sidebar-left, #sidebar-right { display: none !important; }
+    #sidebar-left.mob-show, #sidebar-right.mob-show { display: flex !important; }
+    #mob-tabs { display: flex !important; }
   }
 
-  /* ── Corner decorations ── */
-  .corner-tl::before, .corner-tr::before, .corner-bl::before, .corner-br::before {
-    content:''; position:absolute; width:12px; height:12px;
-    border-color:rgba(0,212,255,.4); border-style:solid;
+  /* ── Voice wake bar ───────────────────────────────────────── */
+  #wake-bar {
+    background: rgba(0,243,255,0.06);
+    border-top: 1px solid rgba(0,243,255,0.1);
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .68rem;
+    color: rgba(0,243,255,0.4);
+    flex-shrink: 0;
   }
-  .corner-tl::before { top:0;left:0; border-width:2px 0 0 2px; }
-  .corner-tr::before { top:0;right:0; border-width:2px 2px 0 0; }
-  .corner-bl::after  { content:''; position:absolute; bottom:0;left:0; width:12px; height:12px; border:2px solid rgba(0,212,255,.4); border-width:0 0 2px 2px; }
-  .corner-br::after  { content:''; position:absolute; bottom:0;right:0; width:12px; height:12px; border:2px solid rgba(0,212,255,.4); border-width:0 2px 2px 0; }
+  #wake-bar .wdot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,243,255,0.3); }
+  #wake-bar.listening { color: rgba(0,243,255,.9); background: rgba(0,243,255,0.08); }
+  #wake-bar.listening .wdot { animation: blink .6s infinite; background: var(--c); }
+  #wake-bar.speaking { color: rgba(129,140,248,.9); }
+  #wake-bar.speaking .wdot { animation: blink .4s infinite; background: var(--p); }
 
-  /* ── Scrollbar global ── */
-  ::-webkit-scrollbar { width:3px; height:3px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:rgba(0,212,255,.2); border-radius:2px; }
+  /* ── Log line ─────────────────────────────────────────────── */
+  .log-line { font-family: 'Share Tech Mono', monospace; font-size: .65rem; line-height: 1.6; }
+  .log-ok   { color: rgba(52,211,153,.7); }
+  .log-warn { color: rgba(251,191,36,.7); }
+  .log-err  { color: rgba(248,113,113,.7); }
+  .log-info { color: rgba(0,243,255,.5); }
+
+  /* ── Modal overlay ────────────────────────────────────────── */
+  .modal-bg {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Core orb SVG ─────────────────────────────────────────── */
+  #core-svg { filter: drop-shadow(0 0 12px rgba(0,243,255,.5)); }
 </style>
 </head>
-<body class="relative z-10">
+<body class="select-none">
 
-<!-- ═══════════════════════════════════════════════════════ HEADER -->
-<header class="relative z-20 flex items-center justify-between px-4 py-2.5 border-b border-[rgba(0,212,255,.12)]"
-        style="background:linear-gradient(180deg,rgba(0,20,40,.95),rgba(2,10,20,.9))">
-
+<!-- ═══════════════════════ HEADER ══════════════════════════════ -->
+<header class="glass corner flex items-center justify-between px-4 py-2 z-10 flex-shrink-0" style="border-radius:0;border-left:0;border-right:0;border-top:0">
   <!-- Logo -->
   <div class="flex items-center gap-3">
-    <div class="relative w-10 h-10 flex items-center justify-center flex-shrink-0">
-      <div class="absolute inset-0 rounded-full border border-dashed border-[rgba(0,212,255,.3)] spin-slow"></div>
-      <div class="absolute inset-[3px] rounded-full border border-[rgba(0,212,255,.4)] spin-rev"></div>
-      <div id="core-dot" class="w-3 h-3 rounded-full bg-[var(--c)] shadow-[0_0_10px_var(--c)]"
-           style="animation:blink 2s ease-in-out infinite"></div>
+    <div class="relative w-10 h-10 flex-shrink-0">
+      <svg class="w-10 h-10 absolute" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="18" stroke="rgba(0,243,255,.2)" stroke-width="1"/>
+        <circle cx="20" cy="20" r="14" stroke="rgba(0,243,255,.15)" stroke-width="1" stroke-dasharray="4 4" class="spin-cw" style="transform-origin:20px 20px"/>
+        <circle cx="20" cy="20" r="9"  stroke="rgba(0,243,255,.3)"  stroke-width="1"/>
+        <circle cx="20" cy="20" r="4"  fill="rgba(0,243,255,.3)" class="pulse"/>
+        <circle cx="20" cy="20" r="2"  fill="var(--c)"/>
+      </svg>
     </div>
     <div>
-      <div class="orb text-lg font-black tracking-[.25em] text-[var(--c)] glow-c leading-none">J.A.R.V.I.S.</div>
-      <div class="mono text-[9px] tracking-[.2em] text-[rgba(0,212,255,.35)] mt-0.5">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+      <div class="orb text-lg font-black tracking-widest text-[#00f3ff] leading-none" style="text-shadow:0 0 16px rgba(0,243,255,.6)">
+        J.A.R.V.I.S.
+      </div>
+      <div class="mono text-[9px] tracking-[.2em] text-[#00f3ff]/40 flex items-center gap-2 mt-0.5">
+        <span id="conn-dot" class="w-1.5 h-1.5 rounded-full dot-offline"></span>
+        <span id="conn-label">OFFLINE</span>
+        <span class="opacity-40">·</span>
+        <span id="hdr-model" class="text-[#a78bfa]/50">—</span>
+      </div>
     </div>
   </div>
 
-  <!-- Center metrics -->
-  <div class="hidden md:flex items-center gap-5 mono text-[10px]">
-    <div class="flex items-center gap-2 text-[rgba(0,255,157,.6)]">
-      <i class="fas fa-robot text-xs"></i>
-      <span>AGENTS </span><span id="hdr-agents" class="text-[var(--g)] font-bold ml-1">0</span>
+  <!-- Center badges -->
+  <div class="hidden sm:flex items-center gap-4 mono text-[9px] text-[#00f3ff]/40">
+    <div class="flex items-center gap-1.5">
+      <i class="fas fa-brain text-[#a78bfa]/60 text-[10px]"></i>
+      MEM <span id="hdr-mem" class="text-[#a78bfa] font-bold ml-1">0</span>
     </div>
-    <div class="flex items-center gap-2 text-[rgba(255,140,0,.6)]">
-      <i class="fas fa-code text-xs"></i>
-      <span>REWRITES </span><span id="hdr-rewrites" class="text-[var(--o)] font-bold ml-1">0</span>
+    <div class="flex items-center gap-1.5">
+      <i class="fas fa-robot text-[#34d399]/60 text-[10px]"></i>
+      AGENTS <span id="hdr-agents" class="text-[#34d399] font-bold ml-1">0</span>
     </div>
-    <div class="flex items-center gap-2 text-[rgba(189,0,255,.6)] cursor-pointer hover:text-[var(--p)]"
-         onclick="showMemoryPanel()" title="Memory">
-      <i class="fas fa-brain text-xs"></i>
-      <span>MEM </span><span id="hdr-mem" class="text-[var(--p)] font-bold ml-1">0</span>
+    <div id="hdr-warn" class="hidden badge bg-[#fbbf24]/10 border border-[#fbbf24]/30 text-[#fbbf24]">
+      <i class="fas fa-triangle-exclamation"></i> <span id="hdr-warn-txt"></span>
     </div>
   </div>
 
-  <!-- Right: status + clock -->
-  <div class="flex items-center gap-4">
-    <div id="status-pill">
-      <span class="blink-dot"></span>
-      <span id="status-txt">CONNECTING</span>
-    </div>
-    <div class="text-right hidden sm:block">
-      <div id="clk" class="orb text-sm font-bold text-[var(--c)] tracking-widest leading-none">00:00:00</div>
-      <div id="clkd" class="mono text-[9px] text-[rgba(0,212,255,.35)] mt-0.5"></div>
-    </div>
+  <!-- Clock -->
+  <div class="text-right">
+    <div id="clk" class="orb text-base font-bold text-[#00f3ff] tracking-widest" style="text-shadow:0 0 8px rgba(0,243,255,.4)">00:00:00</div>
+    <div id="clkd" class="mono text-[9px] text-[#00f3ff]/30 tracking-widest uppercase">---</div>
   </div>
 </header>
-<div id="wake-bar"></div>
 
-<!-- ═══════════════════════════════════════════════════════ MAIN LAYOUT -->
-<div class="flex gap-0" style="height:calc(100vh - 52px); position:relative; z-index:10">
+<!-- ═══════════════════════ MAIN ════════════════════════════════ -->
+<main class="flex flex-1 gap-2 p-2 overflow-hidden" style="min-height:0">
 
-  <!-- ────────────────────── LEFT SIDEBAR ── -->
-  <aside id="sidebar-left" class="w-[240px] flex flex-col gap-3 p-3 border-r border-[rgba(0,212,255,.08)] overflow-y-auto flex-shrink-0"
-         style="background:rgba(2,10,20,.6)">
+  <!-- LEFT SIDEBAR -->
+  <aside id="sidebar-left" class="glass corner flex-col gap-2 w-56 flex-shrink-0 hidden md:flex overflow-hidden" style="padding:10px">
 
     <!-- Core orb -->
-    <div class="panel relative overflow-hidden" style="height:180px">
-      <canvas id="orb-canvas" width="240" height="180"></canvas>
-      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div id="core-text" class="orb text-xs font-bold text-[var(--c)] tracking-widest glow-c">STANDBY</div>
-        <div id="core-sub"  class="mono text-[9px] text-[rgba(0,212,255,.4)] mt-1">AWAITING INPUT</div>
-      </div>
+    <div class="flex flex-col items-center py-3">
+      <svg id="core-svg" width="90" height="90" viewBox="0 0 90 90" fill="none">
+        <circle cx="45" cy="45" r="42" stroke="rgba(0,243,255,.08)" stroke-width="1"/>
+        <circle cx="45" cy="45" r="36" stroke="rgba(0,243,255,.12)" stroke-width="1" stroke-dasharray="6 3" class="spin-cw" style="transform-origin:45px 45px"/>
+        <circle cx="45" cy="45" r="28" stroke="rgba(0,243,255,.18)" stroke-width="1.5"/>
+        <circle cx="45" cy="45" r="20" stroke="rgba(129,140,248,.2)" stroke-width="1" stroke-dasharray="3 2" class="spin-ccw" style="transform-origin:45px 45px"/>
+        <circle id="core-orb" cx="45" cy="45" r="12" fill="rgba(0,243,255,.12)" stroke="rgba(0,243,255,.5)" stroke-width="1.5" class="pulse"/>
+        <circle cx="45" cy="45" r="5" fill="rgba(0,243,255,.6)" class="blink"/>
+        <circle cx="45" cy="45" r="2" fill="var(--c)"/>
+        <!-- orbit dot -->
+        <circle cx="45" cy="7" r="3" fill="rgba(0,243,255,.7)" class="spin-cw" style="transform-origin:45px 45px"/>
+      </svg>
+      <div id="core-state" class="orb text-[9px] text-[#00f3ff]/60 tracking-widest mt-1">STANDBY</div>
     </div>
 
-    <!-- RAM / CPU -->
-    <div class="panel p-3 space-y-3">
-      <div class="panel-header" style="padding:0 0 6px; border:none; margin-bottom:0">
-        <div class="dot"></div>SYSTEM
-      </div>
+    <!-- System metrics -->
+    <div class="border-t border-[#00f3ff]/10 pt-2 space-y-2.5 px-1">
+      <div class="orb text-[8px] text-[#00f3ff]/40 tracking-widest mb-1">SYSTEM METRICS</div>
+
       <div>
         <div class="flex justify-between mono text-[10px] mb-1">
-          <span class="text-[rgba(0,212,255,.5)]">CPU</span>
-          <span id="cpu-pct" class="text-[var(--c)]">0%</span>
+          <span class="text-[#00f3ff]/50">CPU</span>
+          <span id="cpu-val" class="text-[#00f3ff]">—</span>
         </div>
-        <div class="metric-bar"><div id="cpu-bar" class="metric-bar-fill" style="width:0%"></div></div>
+        <div class="bar-track"><div id="cpu-bar" class="bar-fill bg-[#00f3ff]" style="width:0%"></div></div>
       </div>
+
       <div>
         <div class="flex justify-between mono text-[10px] mb-1">
-          <span class="text-[rgba(0,212,255,.5)]">RAM</span>
-          <span id="ram-pct" class="text-[var(--c)]">0%</span>
+          <span class="text-[#00f3ff]/50">RAM</span>
+          <span id="ram-val" class="text-[#00f3ff]">—</span>
         </div>
-        <div class="metric-bar"><div id="ram-bar" class="metric-bar-fill" style="width:0%"></div></div>
+        <div class="bar-track"><div id="ram-bar" class="bar-fill bg-[#818cf8]" style="width:0%"></div></div>
       </div>
+
       <div>
         <div class="flex justify-between mono text-[10px] mb-1">
-          <span class="text-[rgba(0,212,255,.5)]">STORAGE</span>
-          <span id="disk-pct" class="text-[var(--c)]">0%</span>
+          <span class="text-[#00f3ff]/50">DISK</span>
+          <span id="disk-val" class="text-[#00f3ff]">—</span>
         </div>
-        <div class="metric-bar"><div id="disk-bar" class="metric-bar-fill" style="width:0%"></div></div>
+        <div class="bar-track"><div id="disk-bar" class="bar-fill bg-[#34d399]" style="width:0%"></div></div>
       </div>
-      <div class="grid grid-cols-2 gap-2 mt-1">
-        <div class="stat-box">
-          <div id="temp-val" class="stat-val text-sm">--°</div>
-          <div class="stat-lbl">TEMP</div>
+
+      <div>
+        <div class="flex justify-between mono text-[10px] mb-1">
+          <span class="text-[#00f3ff]/50">BATTERY</span>
+          <span id="bat-val" class="text-[#00f3ff]">—</span>
         </div>
-        <div class="stat-box">
-          <div id="bat-val" class="stat-val text-sm">--%</div>
-          <div class="stat-lbl">BATTERY</div>
-        </div>
+        <div class="bar-track"><div id="bat-bar" class="bar-fill bg-[#fbbf24]" style="width:0%"></div></div>
       </div>
     </div>
 
     <!-- Model selector -->
-    <div class="panel p-3">
-      <div class="panel-header" style="padding:0 0 8px; border:none">
-        <div class="dot"></div>MODEL
-      </div>
-      <select id="model-sel" class="w-full">
-        <option value="">Loading...</option>
+    <div class="border-t border-[#00f3ff]/10 pt-2 px-1">
+      <div class="orb text-[8px] text-[#00f3ff]/40 tracking-widest mb-1.5">MODEL</div>
+      <select id="model-sel" class="w-full mono text-[10px] bg-transparent border border-[#00f3ff]/20 rounded text-[#00f3ff]/70 px-2 py-1.5 outline-none">
+        <option value="">— none —</option>
       </select>
-      <div id="compat-info" class="mono text-[9px] text-[rgba(0,212,255,.3)] mt-2 leading-relaxed"></div>
-    </div>
-
-    <!-- Syslog -->
-    <div class="panel flex-1 overflow-hidden flex flex-col" style="min-height:100px">
-      <div class="panel-header"><div class="dot"></div>SYSLOG</div>
-      <div id="syslog" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
-    </div>
-  </aside>
-
-  <!-- ────────────────────── CENTER (CHAT) ── -->
-  <main id="main-col" class="flex-1 flex flex-col overflow-hidden min-w-0">
-    <div id="chat-log"></div>
-    <div id="typing-indicator" class="hidden px-4 pb-2">
-      <div class="msg msg-ai" style="padding:8px 14px; max-width:80px">
-        <div class="flex gap-1 items-center">
-          <div class="typing-dot"></div>
-          <div class="typing-dot"></div>
-          <div class="typing-dot"></div>
-        </div>
-      </div>
-    </div>
-    <div id="input-bar">
-      <button id="mic-btn" class="btn-icon" onclick="toggleMic()" title="Hold to speak / Say 'Hey Jarvis'">
-        <i class="fas fa-microphone"></i>
-      </button>
-      <textarea id="msg-input" placeholder="Talk to J.A.R.V.I.S. — or say 'Hey Jarvis'…" rows="1"
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
-      <button id="send-btn" class="btn-icon" onclick="sendMsg()" title="Send">
-        <i class="fas fa-paper-plane"></i>
-      </button>
-    </div>
-  </main>
-
-  <!-- ────────────────────── RIGHT SIDEBAR ── -->
-  <aside id="sidebar-right" class="w-[220px] flex flex-col gap-3 p-3 border-l border-[rgba(0,212,255,.08)] overflow-y-auto flex-shrink-0"
-         style="background:rgba(2,10,20,.6)">
-
-    <!-- Sub-agents -->
-    <div class="panel panel-green flex flex-col" style="min-height:140px">
-      <div class="panel-header green"><div class="dot"></div>SUB-AGENTS</div>
-      <div id="agent-list" class="flex-1 p-2 space-y-1.5 overflow-y-auto">
-        <div class="mono text-[10px] text-[rgba(0,255,157,.25)] text-center pt-4">No agents running</div>
-      </div>
-      <div class="p-2 border-t border-[rgba(0,255,157,.1)]">
-        <button onclick="spawnAgent()" class="w-full py-1.5 rounded-md orb text-[9px] tracking-widest
-               border border-[rgba(0,255,157,.3)] text-[rgba(0,255,157,.6)] hover:bg-[rgba(0,255,157,.1)]
-               hover:text-[var(--g)] transition-all">
-          <i class="fas fa-plus mr-1"></i>SPAWN AGENT
-        </button>
-      </div>
-    </div>
-
-    <!-- Comm log -->
-    <div class="panel panel-purple flex-1 flex flex-col overflow-hidden">
-      <div class="panel-header purple"><div class="dot"></div>COMM LOG</div>
-      <div id="comm-log" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
     </div>
 
     <!-- Quick actions -->
-    <div class="panel p-3 space-y-2">
-      <div class="panel-header" style="padding:0 0 8px;border:none"><div class="dot"></div>ACTIONS</div>
-      <button onclick="sendMsg('run device scan')"
-              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(0,212,255,.2)]
-                     text-[rgba(0,212,255,.5)] hover:bg-[rgba(0,212,255,.08)] hover:text-[var(--c)] transition-all">
-        <i class="fas fa-microchip mr-1"></i>DEVICE SCAN
-      </button>
-      <button onclick="sendMsg('rewrite yourself to be faster')"
-              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(255,140,0,.2)]
-                     text-[rgba(255,140,0,.5)] hover:bg-[rgba(255,140,0,.08)] hover:text-[var(--o)] transition-all">
-        <i class="fas fa-sync mr-1"></i>SELF-REWRITE
-      </button>
-      <button onclick="showMemoryPanel()"
-              class="w-full py-1.5 rounded mono text-[10px] border border-[rgba(189,0,255,.25)]
-                     text-[rgba(189,0,255,.5)] hover:bg-[rgba(189,0,255,.08)] hover:text-[var(--p)] transition-all">
-        <i class="fas fa-brain mr-1"></i>MEMORY CORE
-      </button>
+    <div class="border-t border-[#00f3ff]/10 pt-2 px-1 mt-auto">
+      <div class="orb text-[8px] text-[#00f3ff]/40 tracking-widest mb-1.5">ACTIONS</div>
+      <div class="grid grid-cols-2 gap-1">
+        <button class="btn text-[8px] py-1.5" onclick="quickCmd('device scan')"><i class="fas fa-microchip mr-1"></i>SCAN</button>
+        <button class="btn text-[8px] py-1.5" onclick="showMem()"><i class="fas fa-brain mr-1"></i>MEM</button>
+        <button class="btn text-[8px] py-1.5" onclick="quickCmd('list agents')"><i class="fas fa-robot mr-1"></i>AGENTS</button>
+        <button class="btn text-[8px] py-1.5" onclick="clearChat()"><i class="fas fa-trash mr-1"></i>CLEAR</button>
+      </div>
     </div>
   </aside>
+
+  <!-- CENTER: CHAT -->
+  <section class="glass corner flex flex-col flex-1 overflow-hidden" style="padding:0;min-width:0">
+
+    <!-- Chat header bar -->
+    <div class="flex items-center justify-between px-4 py-2 border-b border-[#00f3ff]/10 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <div id="chat-status-dot" class="w-2 h-2 rounded-full dot-offline"></div>
+        <span class="orb text-[9px] text-[#00f3ff]/50 tracking-widest">COMM CHANNEL</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="typing-ind" class="hidden items-center gap-1 px-2">
+          <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+          <span class="mono text-[9px] text-[#818cf8]/60 ml-1">PROCESSING</span>
+        </div>
+        <!-- Mobile panel toggles -->
+        <div class="flex gap-1 md:hidden">
+          <button class="btn text-[8px] py-1 px-2" onclick="togglePanel('left')"><i class="fas fa-chart-bar"></i></button>
+          <button class="btn text-[8px] py-1 px-2" onclick="togglePanel('right')"><i class="fas fa-list"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-3" style="scroll-behavior:smooth"></div>
+
+    <!-- Input area -->
+    <div class="border-t border-[#00f3ff]/10 p-3 flex-shrink-0">
+      <div class="flex gap-2 items-end">
+        <textarea id="input-box" rows="1"
+          class="flex-1 px-3 py-2"
+          placeholder="Speak to J.A.R.V.I.S. ..."
+          onkeydown="onKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button id="mic-btn" class="btn btn-mic flex-shrink-0" onclick="toggleMic()" title="Voice input">
+          <i class="fas fa-microphone"></i>
+        </button>
+        <button class="btn btn-send flex-shrink-0" onclick="send()">
+          <i class="fas fa-paper-plane mr-1"></i>SEND
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT SIDEBAR -->
+  <aside id="sidebar-right" class="glass corner flex-col gap-2 w-52 flex-shrink-0 hidden lg:flex overflow-hidden" style="padding:10px">
+
+    <!-- Sub-agents -->
+    <div>
+      <div class="orb text-[8px] text-[#34d399]/50 tracking-widest mb-1.5 flex items-center gap-2">
+        <i class="fas fa-robot text-[#34d399]/40"></i> SUB-AGENTS
+      </div>
+      <div id="agent-list" class="space-y-1 text-[10px] mono text-[#00f3ff]/30 italic">no active agents</div>
+    </div>
+
+    <!-- System log -->
+    <div class="border-t border-[#00f3ff]/10 pt-2 flex-1 overflow-hidden flex flex-col">
+      <div class="orb text-[8px] text-[#00f3ff]/40 tracking-widest mb-1.5 flex items-center justify-between">
+        <span><i class="fas fa-terminal mr-1"></i>SYS LOG</span>
+        <button onclick="clearLog()" class="text-[#00f3ff]/20 hover:text-[#00f3ff]/60 text-[8px]">CLR</button>
+      </div>
+      <div id="syslog" class="flex-1 overflow-y-auto space-y-0.5"></div>
+    </div>
+
+    <!-- Ollama status -->
+    <div class="border-t border-[#00f3ff]/10 pt-2">
+      <div class="orb text-[8px] text-[#00f3ff]/40 tracking-widest mb-1.5">OLLAMA</div>
+      <div id="ollama-status" class="mono text-[9px] text-[#00f3ff]/40">checking...</div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- ═══════════════════════ WAKE BAR ════════════════════════════ -->
+<div id="wake-bar">
+  <div class="wdot"></div>
+  <span id="wake-label">WAKE WORD: "HEY JARVIS" — LISTENING</span>
+  <div class="ml-auto flex items-center gap-3 mono text-[9px]">
+    <span>VOICE: <span id="voice-status" class="text-[#00f3ff]/60">OFF</span></span>
+  </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ MEMORY MODAL -->
-<div id="mem-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="hideMemoryPanel()"></div>
-  <div class="relative panel panel-purple p-6 w-[360px] z-10 corner-tl corner-tr corner-bl corner-br"
-       style="background:rgba(5,2,20,.95)">
-    <h2 class="orb text-sm font-bold text-[var(--p)] tracking-widest mb-5 flex items-center gap-2">
+<!-- ═══════════════════════ MEMORY MODAL ════════════════════════ -->
+<div id="mem-modal" class="modal-bg hidden">
+  <div class="glass corner p-6 w-80" style="border-color:rgba(129,140,248,.3)">
+    <div class="orb text-xs font-bold text-[#a78bfa] tracking-widest mb-4 flex items-center gap-2">
       <i class="fas fa-brain"></i> MEMORY CORE
-    </h2>
-    <div class="space-y-3 mb-5">
+    </div>
+    <div class="space-y-2 mb-5">
       <div class="flex justify-between mono text-xs">
-        <span class="text-[rgba(0,212,255,.5)]">Saved messages</span>
-        <span id="modal-mem-count" class="text-[var(--p)] font-bold">—</span>
+        <span class="text-[#00f3ff]/50">Saved messages</span>
+        <span id="mem-count-modal" class="text-[#a78bfa] font-bold">—</span>
       </div>
       <div class="flex justify-between mono text-xs">
-        <span class="text-[rgba(0,212,255,.5)]">Profile name</span>
-        <span id="modal-profile-name" class="text-[var(--g)]">—</span>
+        <span class="text-[#00f3ff]/50">Profile name</span>
+        <span id="mem-name-modal" class="text-[#34d399]">—</span>
       </div>
-      <div id="modal-summary" class="mono text-[10px] text-[rgba(0,212,255,.35)] italic leading-relaxed p-2
-           border border-[rgba(189,0,255,.1)] rounded-md bg-[rgba(189,0,255,.03)]"></div>
+      <div id="mem-summary-modal" class="mono text-[9px] text-[#00f3ff]/30 italic mt-2 leading-relaxed"></div>
     </div>
     <div class="flex gap-2">
-      <button onclick="refreshMemModal()"
-              class="flex-1 py-2 rounded mono text-[10px] border border-[rgba(0,212,255,.2)]
-                     text-[rgba(0,212,255,.5)] hover:bg-[rgba(0,212,255,.08)] transition-all">
-        <i class="fas fa-sync mr-1"></i>REFRESH
-      </button>
-      <button onclick="clearMemory()"
-              class="flex-1 py-2 rounded mono text-[10px] border border-[rgba(255,0,60,.25)]
-                     text-[rgba(255,0,60,.5)] hover:bg-[rgba(255,0,60,.08)] transition-all">
-        <i class="fas fa-trash mr-1"></i>CLEAR
-      </button>
-      <button onclick="hideMemoryPanel()"
-              class="px-4 py-2 rounded mono text-[10px] border border-[rgba(0,212,255,.15)]
-                     text-[rgba(0,212,255,.35)] hover:bg-[rgba(0,212,255,.05)] transition-all">
-        ESC
-      </button>
+      <button onclick="refreshMem()" class="flex-1 btn text-[9px]"><i class="fas fa-sync mr-1"></i>REFRESH</button>
+      <button onclick="clearMem()" class="flex-1 btn text-[9px]" style="border-color:rgba(248,113,113,.3);color:rgba(248,113,113,.6)"><i class="fas fa-trash mr-1"></i>CLEAR</button>
+      <button onclick="hideMem()" class="btn text-[9px] px-3">CLOSE</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
+<!-- ════════════════════════ SCRIPTS ════════════════════════════ -->
 <script>
-// ── Config ────────────────────────────────────────────────────────────
-const BASE = 'http://localhost:8000';
-const POLL = 4000;
-const WAKE_WORDS = ['hey jarvis', 'jarvis', 'hey j.a.r.v.i.s.'];
-const TTS = { enabled: true, rate: 0.92, pitch: 0.8, volume: 1.0 };
+// ── Config ─────────────────────────────────────────────────────
+const BASE  = 'http://localhost:8000';
+const POLL  = 4000;
+const WAKE  = ['hey jarvis','jarvis'];
+const TTS_CFG = { rate:.92, pitch:.8, vol:1 };
 
-// ── State ─────────────────────────────────────────────────────────────
-let online = false, speaking = false, recognition = null;
-let history = [], model = '', rewriteCount = 0, memCount = 0;
-let userProfile = { name: 'Boss' };
-let deviceCompat = { low_ram: false, arm32: false, offline_mode: false, recommended_model: 'llama3.2:1b', num_ctx: 2048, ram_mb: 4096 };
-const SPEECH_AVAILABLE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-const TTS_AVAILABLE = !!(window.speechSynthesis);
+let online = false;
+let model  = '';
+let history = [];
+let recognition = null;
+let synth = window.speechSynthesis;
+let micActive = false;
+let memCount = 0;
+let agentCount = 0;
+let pullTimer = null;
 
-// ── Clock ─────────────────────────────────────────────────────────────
-function tickClock() {
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// ── DOM shortcuts ───────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const ch = $('chat');
+const sb = $('syslog');
+
+// ── Clock ───────────────────────────────────────────────────────
+function tick() {
   const n = new Date();
-  document.getElementById('clk').innerText = n.toLocaleTimeString('en',{hour12:false});
-  document.getElementById('clkd').innerText = n.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'}).toUpperCase();
+  $('clk').textContent  = n.toLocaleTimeString('en',{hour12:false});
+  $('clkd').textContent = n.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'});
 }
-setInterval(tickClock, 1000); tickClock();
+setInterval(tick,1000); tick();
 
-// ── Orb canvas ────────────────────────────────────────────────────────
-(function orbCanvas() {
-  const cvs = document.getElementById('orb-canvas');
-  if (!cvs) return;
-  const ctx = cvs.getContext('2d');
-  let particles = [], t = 0;
-  for (let i = 0; i < 35; i++) {
-    particles.push({ r: 30 + Math.random()*60, a: Math.random()*Math.PI*2, s: (.0003+Math.random()*.0008)*(Math.random()<.5?1:-1),
-      size: .8+Math.random()*2, c: Math.random() > .7 ? '#00ff9d' : '#00d4ff', alpha: .2+Math.random()*.6 });
-  }
-  function draw() {
-    ctx.clearRect(0,0,cvs.width,cvs.height);
-    const cx=cvs.width/2, cy=cvs.height/2;
-    // rings
-    [50,70,90].forEach((r,i)=>{
-      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(0,212,255,${.04+i*.02})`; ctx.lineWidth=1; ctx.stroke();
-    });
-    // rotating dashed ring
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.2);
-    ctx.beginPath(); ctx.arc(0,0,62,0,Math.PI*2);
-    ctx.setLineDash([4,8]); ctx.strokeStyle='rgba(0,212,255,.2)'; ctx.lineWidth=1; ctx.stroke();
-    ctx.restore();
-    // particles
-    particles.forEach(p => {
-      p.a += p.s;
-      const x = cx + Math.cos(p.a)*p.r, y = cy + Math.sin(p.a)*p.r;
-      ctx.beginPath(); ctx.arc(x,y,p.size,0,Math.PI*2);
-      ctx.fillStyle = p.c.replace(')',`,${p.alpha})`).replace('rgb','rgba'); ctx.fill();
-    });
-    // core glow
-    const g = ctx.createRadialGradient(cx,cy,0,cx,cy,28);
-    g.addColorStop(0,'rgba(0,212,255,.25)'); g.addColorStop(1,'rgba(0,212,255,0)');
-    ctx.beginPath(); ctx.arc(cx,cy,28,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    // center dot
-    ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,212,255,.9)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
-    ctx.fillStyle='#fff'; ctx.fill();
-    t++; requestAnimationFrame(draw);
-  }
-  draw();
-})();
-
-// ── Syslog ────────────────────────────────────────────────────────────
+// ── System log ──────────────────────────────────────────────────
 function sysLog(msg, type='info') {
-  const el = document.getElementById('syslog');
+  const cls = {info:'log-info',ok:'log-ok',warn:'log-warn',err:'log-err'}[type]||'log-info';
   const d = document.createElement('div');
-  d.className = `log-entry log-${type}`;
-  const ts = new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  d.textContent = `[${ts}] ${msg}`;
-  el.appendChild(d); el.scrollTop = el.scrollHeight;
-  if (el.children.length > 100) el.removeChild(el.children[0]);
+  d.className = `log-line ${cls}`;
+  d.textContent = `[${new Date().toLocaleTimeString('en',{hour12:false})}] ${msg}`;
+  sb.appendChild(d);
+  if (sb.children.length > 60) sb.removeChild(sb.firstChild);
+  sb.scrollTop = sb.scrollHeight;
 }
 
-// ── Comm log ──────────────────────────────────────────────────────────
-function commLog(from, msg, type='info') {
-  const el = document.getElementById('comm-log');
+function clearLog() { sb.innerHTML = ''; }
+
+// ── Chat messages ───────────────────────────────────────────────
+function addMsg(role, text, type='') {
+  const cls = role==='user' ? 'msg-user' : (type==='err' ? 'msg-err' : (role==='sys' ? 'msg-sys' : 'msg-ai'));
+  const label = role==='user' ? 'YOU' : (role==='sys' ? 'SYS' : 'JARVIS');
+  const labelColor = role==='user' ? 'text-[#00f3ff]' : (role==='sys' ? 'text-[#fbbf24]/70' : 'text-[#818cf8]');
   const d = document.createElement('div');
-  const colors = {info:'rgba(0,212,255,.5)', ok:'rgba(0,255,157,.6)', warn:'rgba(255,140,0,.6)', err:'rgba(255,0,60,.6)', sys:'rgba(189,0,255,.5)'};
-  d.style.cssText = `font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 0;border-bottom:1px solid rgba(0,212,255,.05);color:${colors[type]||colors.info}`;
-  d.innerHTML = `<span style="opacity:.5">[${from}]</span> ${msg}`;
-  el.appendChild(d); el.scrollTop = el.scrollHeight;
-  if (el.children.length > 60) el.removeChild(el.children[0]);
+  d.className = `${cls} p-3 fade-in`;
+  d.innerHTML = `<div class="mono text-[9px] ${labelColor} mb-1 tracking-widest font-bold">${label}</div>
+    <div class="text-sm leading-relaxed" style="font-family:'Rajdhani',sans-serif;font-size:.9rem">${escHtml(text)}</div>`;
+  ch.appendChild(d);
+  ch.scrollTop = ch.scrollHeight;
+  return d;
 }
 
-// ── Core text ─────────────────────────────────────────────────────────
-function setCoreText(main, sub) {
-  document.getElementById('core-text').textContent = main || 'READY';
-  if (sub !== undefined) document.getElementById('core-sub').textContent = sub || '';
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
 }
 
-// ── Chat messages ─────────────────────────────────────────────────────
-function addMsg(role, text) {
-  const log = document.getElementById('chat-log');
-  const wrap = document.createElement('div');
-  const cls = role === 'user' ? 'msg msg-user' : role === 'sys' ? 'msg msg-sys' : 'msg msg-ai';
-  wrap.className = cls;
-
-  if (role !== 'sys') {
-    const lbl = document.createElement('div');
-    lbl.className = 'msg-label';
-    lbl.style.color = role === 'user' ? 'rgba(0,212,255,.5)' : 'rgba(189,0,255,.5)';
-    lbl.textContent = role === 'user' ? '▸ YOU' : '▸ J.A.R.V.I.S.';
-    wrap.appendChild(lbl);
-  }
-
-  const body = document.createElement('div');
-  body.textContent = text;
-  wrap.appendChild(body);
-  log.appendChild(wrap);
-  log.scrollTop = log.scrollHeight;
-  return wrap;
+let typingEl = null;
+function showTyping() {
+  $('typing-ind').classList.remove('hidden');
+  $('typing-ind').classList.add('flex');
+  setCoreState('PROCESSING');
+}
+function hideTyping() {
+  $('typing-ind').classList.add('hidden');
+  $('typing-ind').classList.remove('flex');
+  setCoreState(online ? 'ONLINE' : 'OFFLINE');
 }
 
-function showTyping(show) {
-  document.getElementById('typing-indicator').classList.toggle('hidden', !show);
-  const log = document.getElementById('chat-log');
-  log.scrollTop = log.scrollHeight;
+function setCoreState(s) {
+  $('core-state').textContent = s;
 }
 
-// ── TTS ───────────────────────────────────────────────────────────────
-function speak(text) {
-  if (!TTS.enabled || !TTS_AVAILABLE) return;
-  window.speechSynthesis.cancel();
-  const clean = text.replace(/[#*`_~\[\]()>]/g,'').replace(/\n/g,' ').slice(0,300);
-  const u = new SpeechSynthesisUtterance(clean);
-  u.rate = TTS.rate; u.pitch = TTS.pitch; u.volume = TTS.volume;
-  window.speechSynthesis.speak(u);
-}
-
-// ── Slang expander ────────────────────────────────────────────────────
-const SLANG = {
-  'yk':'you know','rn':'right now','fr':'for real','ngl':'not gonna lie','tbh':'to be honest',
-  'imo':'in my opinion','imho':'in my honest opinion','lmk':'let me know','asap':'as soon as possible',
-  'afk':'away from keyboard','brb':'be right back','idk':'I don\'t know','iirc':'if I recall correctly',
-  'lol':'laughing out loud','btw':'by the way','afaik':'as far as I know','dm':'direct message',
-  'irl':'in real life','smh':'shaking my head','fyi':'for your information','tbf':'to be fair',
-  'w/':'with','w/o':'without','pls':'please','plz':'please','thx':'thanks','ty':'thank you',
-  'bc':'because','cuz':'because','gonna':'going to','wanna':'want to','kinda':'kind of',
-  'sorta':'sort of','gotta':'got to','tryna':'trying to','boutta':'about to','ima':'I am going to',
-  'lowkey':'somewhat','highkey':'definitely','bussin':'excellent','bet':'agreed','sheesh':'wow',
-  'slay':'do great','cap':'lie','no cap':'no lie','periodt':'period','finna':'going to',
-  'prolly':'probably','obv':'obviously','legit':'legitimately','cya':'see you','ttyl':'talk to you later',
-};
-function expandSlang(txt) {
-  return txt.split(/\b/).map(w=>SLANG[w.toLowerCase()]||w).join('');
-}
-
-// ── Send message ──────────────────────────────────────────────────────
-async function sendMsg(presetMsg) {
-  const input = document.getElementById('msg-input');
-  const raw = (presetMsg !== undefined ? presetMsg : input.value).trim();
-  if (!raw) return;
-  if (!presetMsg) input.value = '';
-  if (!online) { addMsg('sys','[ OFFLINE — backend not connected ]'); return; }
-
-  const expanded = expandSlang(raw);
-  addMsg('user', raw);
-  setCoreText('PROCESSING', 'ANALYZING INPUT');
-  showTyping(true);
-  document.getElementById('core-dot').style.cssText = 'width:12px;height:12px;border-radius:50%;background:var(--p);box-shadow:0 0 14px var(--p);animation:blink .6s ease-in-out infinite';
-
-  history.push({ role: 'user', content: expanded });
-  if (history.length > 30) history = history.slice(-30);
-
-  try {
-    const res = await fetch(`${BASE}/api/chat`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ message: expanded, model: model || 'llama3', history: history.slice(-20), save: true })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.response);
-
-    const reply = data.response || '';
-    history.push({ role:'assistant', content: reply });
-
-    if (data.memory_count) {
-      memCount = data.memory_count;
-      document.getElementById('hdr-mem').innerText = memCount;
-    }
-
-    showTyping(false);
-    addMsg('ai', reply);
-    speak(reply);
-    setCoreText('READY', 'AWAITING INPUT');
-
-    // Check for self-rewrite
-    if (reply.toLowerCase().includes('rewriting') || reply.toLowerCase().includes('self-rewrite')) {
-      rewriteCount++;
-      document.getElementById('hdr-rewrites').innerText = rewriteCount;
-    }
-    commLog('AI', reply.slice(0,60)+'…', 'ok');
-  } catch(e) {
-    showTyping(false);
-    addMsg('sys', `[ ERROR: ${e.message} ]`);
-    setCoreText('ERROR', e.message.slice(0,30));
-    sysLog(`Chat error: ${e.message}`, 'err');
-  }
-  document.getElementById('core-dot').style.cssText = 'width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);animation:blink 2s ease-in-out infinite';
-}
-
-// ── Health poll ───────────────────────────────────────────────────────
+// ── Poll /health ────────────────────────────────────────────────
 async function poll() {
   try {
     const ctl = new AbortController();
-    setTimeout(() => ctl.abort(), 3000);
-    const d = await (await fetch(`${BASE}/health`, { signal: ctl.signal })).json();
+    setTimeout(()=>ctl.abort(), 3000);
+    const d = await fetch(`${BASE}/health`,{signal:ctl.signal}).then(r=>r.json());
     if (!online) {
       online = true;
-      document.getElementById('status-pill').className = 'online ' + document.getElementById('status-pill').className.replace('online','');
-      document.getElementById('status-pill').classList.add('online');
-      document.getElementById('status-txt').textContent = 'ONLINE';
-      sysLog('Backend connected', 'ok');
-      commLog('SYS', 'J.A.R.V.I.S. backend online', 'ok');
-      setCoreText('ONLINE', 'SYSTEM READY');
+      setOnline(true);
       loadModels();
+      loadProfile();
+      loadMem();
+      pullTimer && clearInterval(pullTimer);
     }
-  } catch(e) {
-    if (online) {
-      online = false;
-      document.getElementById('status-pill').classList.remove('online');
-      document.getElementById('status-txt').textContent = 'OFFLINE';
-      sysLog('Backend connection lost', 'err');
-    }
+    // Update agent count
+    const ac = d.agents || 0;
+    if (ac !== agentCount) { agentCount = ac; $('hdr-agents').textContent = ac; }
+    refreshAgents();
+  } catch {
+    if (online) { online = false; setOnline(false); }
   }
 }
 
-// ── Models ────────────────────────────────────────────────────────────
+function setOnline(v) {
+  const dot = ['conn-dot','chat-status-dot'];
+  dot.forEach(id => {
+    $(id).className = 'rounded-full ' + (v?'w-2 h-2 dot-online':'w-2 h-2 dot-offline') + (id==='conn-dot'?' w-1.5 h-1.5':'');
+  });
+  $('conn-label').textContent = v ? 'ONLINE' : 'OFFLINE';
+  setCoreState(v ? 'ONLINE' : 'OFFLINE');
+  if(v) sysLog('Backend connected', 'ok');
+  else  sysLog('Backend offline', 'warn');
+  loadSystemStats();
+}
+
+// ── Models ──────────────────────────────────────────────────────
 async function loadModels() {
   try {
-    const d = await (await fetch(`${BASE}/api/models`)).json();
-    const sel = document.getElementById('model-sel');
+    const d = await fetch(`${BASE}/api/models`).then(r=>r.json());
+    const sel = $('model-sel');
     sel.innerHTML = '';
-    const models = d.models || [];
-    if (!models.length) {
-      sel.innerHTML = '<option value="">No models found</option>';
-      sysLog('No Ollama models. Run: ollama pull llama3.2:1b', 'warn');
-      return;
+    if (d.models && d.models.length) {
+      d.models.forEach(m => {
+        const o = document.createElement('option');
+        o.value = o.textContent = m;
+        if (!model || m === d.suggested) { o.selected = true; model = m; }
+        sel.appendChild(o);
+      });
+      $('hdr-model').textContent = model.split(':')[0].toUpperCase();
+      sysLog(`Models: ${d.models.join(', ')}`, 'ok');
+    } else {
+      // No models — trigger pull
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = `Pulling ${d.suggested||'llama3.2:1b'}…`;
+      sel.appendChild(opt);
+      $('hdr-model').textContent = 'PULLING…';
+      sysLog(`No models — auto-pulling ${d.suggested||'llama3.2:1b'}`, 'warn');
+      triggerPull(d.suggested || 'llama3.2:1b');
     }
-    models.forEach(m => {
-      const o = document.createElement('option');
-      o.value = m.name; o.textContent = m.name;
-      sel.appendChild(o);
-    });
-    model = models[0].name;
-    sysLog(`Models loaded: ${models.map(m=>m.name).join(', ')}`, 'ok');
-  } catch(e) { sysLog('Model load failed', 'warn'); }
+  } catch(e) { sysLog('Model list failed: '+e, 'err'); }
 }
 
-// ── System metrics poll ───────────────────────────────────────────────
-async function pollMetrics() {
-  if (!online) return;
+async function triggerPull(name) {
   try {
-    const d = await (await fetch(`${BASE}/api/system`)).json();
+    await fetch(`${BASE}/api/pull`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    addMsg('sys', `⏳ Pulling ${name} — first run takes 1–3 minutes. I'll be ready soon!`);
+    // Poll for model every 20s
+    pullTimer = setInterval(async()=>{
+      const d = await fetch(`${BASE}/api/models`).then(r=>r.json()).catch(()=>null);
+      if (d && d.models && d.models.length) {
+        clearInterval(pullTimer);
+        loadModels();
+        addMsg('sys', `✅ Model ${d.models[0]} ready! What can I do for you?`);
+      }
+    }, 20000);
+  } catch {}
+}
+
+$('model-sel').addEventListener('change', e => {
+  model = e.target.value;
+  $('hdr-model').textContent = model.split(':')[0].toUpperCase();
+});
+
+// ── System stats ────────────────────────────────────────────────
+async function loadSystemStats() {
+  try {
+    const d = await fetch(`${BASE}/api/system`).then(r=>r.json());
     if (!d) return;
-    const setBar = (id, val) => {
-      const pct = Math.min(100, Math.max(0, val || 0));
-      const bar = document.getElementById(id);
-      const txt = document.getElementById(id.replace('-bar','-pct'));
-      if (bar) { bar.style.width = pct+'%'; bar.className = 'metric-bar-fill' + (pct>85?' crit':pct>65?' warn':''); }
-      if (txt) txt.textContent = pct.toFixed(0)+'%';
+    const setBar = (id, pct, warnPct=80) => {
+      const el = $(id+'-bar'); if(!el) return;
+      const color = pct >= warnPct ? '#f87171' : pct >= 60 ? '#fbbf24' : null;
+      el.style.width = pct+'%';
+      if(color) el.style.background = color;
+      const warn = $('hdr-warn');
+      if(pct >= 90) { warn.classList.remove('hidden'); $('hdr-warn-txt').textContent = id.toUpperCase()+' '+pct+'%'; }
     };
-    setBar('cpu-bar', d.cpu);
-    setBar('ram-bar', d.ram);
-    setBar('disk-bar', d.disk);
-    if (d.temp && document.getElementById('temp-val')) document.getElementById('temp-val').textContent = d.temp+'°C';
-    if (d.battery && document.getElementById('bat-val')) document.getElementById('bat-val').textContent = d.battery+'%';
-  } catch(e) {}
+    if (d.cpu_percent !== undefined) { $(  'cpu-val').textContent = d.cpu_percent+'%'; setBar('cpu', d.cpu_percent); }
+    if (d.ram_percent !== undefined) { $('ram-val').textContent = d.ram_used+'MB/'+d.ram_total+'MB'; setBar('ram', d.ram_percent, 85); }
+    if (d.disk_percent!== undefined) { $('disk-val').textContent = d.disk_percent+'%'; setBar('disk', d.disk_percent); }
+    if (d.battery !== undefined)     { $('bat-val').textContent = d.battery+'%'; setBar('bat', d.battery, 101); // no warn for battery }
+  } catch {}
 }
+setInterval(loadSystemStats, 5000);
 
-// ── Compat load ───────────────────────────────────────────────────────
-async function loadCompat() {
-  try {
-    const d = await (await fetch(`${BASE}/api/compat`, {signal: AbortSignal.timeout(3000)})).json();
-    deviceCompat = d;
-    const info = document.getElementById('compat-info');
-    if (info) info.textContent = `${d.arch} · ${d.ram_mb}MB RAM · Android ${d.android}`;
-    if (d.offline_mode || d.arm32) {
-      addMsg('sys', '⚠ ARM32 / Offline mode — voice AI unavailable. Text only.');
-    }
-    if (!SPEECH_AVAILABLE) {
-      const btn = document.getElementById('mic-btn');
-      if (btn) { btn.disabled = true; btn.style.opacity = '.3'; btn.title = 'Voice unavailable in this browser'; }
-    }
-    if (!TTS_AVAILABLE) TTS.enabled = false;
-  } catch(e) {}
-}
-
-// ── Memory ────────────────────────────────────────────────────────────
-async function loadMemory() {
-  try {
-    const d = await (await fetch(`${BASE}/api/memory`)).json();
-    memCount = d.count || 0;
-    document.getElementById('hdr-mem').innerText = memCount;
-    if (d.messages?.length && !history.length) {
-      history = d.messages.slice(-10);
-      sysLog(`Memory restored: ${memCount} messages`, 'ok');
-      commLog('MEM', `${memCount} messages loaded from disk`, 'sys');
-    }
-  } catch(e) { sysLog('Memory load failed', 'warn'); }
-}
-
+// ── Profile + Memory ────────────────────────────────────────────
+let userProfile = {name:'Boss'};
 async function loadProfile() {
-  try {
-    const d = await (await fetch(`${BASE}/api/profile`)).json();
-    userProfile = d;
-  } catch(e) {}
+  try { userProfile = await fetch(`${BASE}/api/profile`).then(r=>r.json()); }
+  catch {}
 }
 
-function showMemoryPanel() {
-  document.getElementById('mem-modal').classList.remove('hidden');
-  refreshMemModal();
-}
-function hideMemoryPanel() {
-  document.getElementById('mem-modal').classList.add('hidden');
-}
-async function refreshMemModal() {
+async function loadMem() {
   try {
-    const d = await (await fetch(`${BASE}/api/memory`)).json();
-    document.getElementById('modal-mem-count').innerText = d.count || 0;
-    document.getElementById('modal-profile-name').innerText = userProfile.name || '—';
-    if (d.summary) document.getElementById('modal-summary').textContent = '"' + d.summary + '"';
-  } catch(e) {}
-}
-async function clearMemory() {
-  if (!confirm('Clear all memory? (backup saved first)')) return;
-  try {
-    await fetch(`${BASE}/api/memory/clear`, {method:'POST'});
-    history = []; memCount = 0;
-    document.getElementById('hdr-mem').innerText = 0;
-    sysLog('Memory cleared', 'warn');
-    addMsg('sys', '[ Memory cleared — fresh start ]');
-  } catch(e) {}
-  hideMemoryPanel();
+    const d = await fetch(`${BASE}/api/memory`).then(r=>r.json());
+    memCount = d.count || 0;
+    $('hdr-mem').textContent = memCount;
+  } catch {}
 }
 
-// ── Sub-agents ────────────────────────────────────────────────────────
+function showMem() {
+  $('mem-modal').classList.remove('hidden');
+  refreshMem();
+}
+function hideMem() { $('mem-modal').classList.add('hidden'); }
+
+async function refreshMem() {
+  try {
+    const d = await fetch(`${BASE}/api/memory`).then(r=>r.json());
+    $('mem-count-modal').textContent = d.count || 0;
+    $('mem-name-modal').textContent  = userProfile.name || '—';
+    $('mem-summary-modal').textContent = d.summary ? '"'+d.summary+'"' : '';
+  } catch {}
+}
+
+async function clearMem() {
+  await fetch(`${BASE}/api/memory/clear`,{method:'POST'}).catch(()=>{});
+  memCount = 0; $('hdr-mem').textContent = 0;
+  $('mem-count-modal').textContent = 0;
+  sysLog('Memory cleared', 'warn');
+  hideMem();
+}
+
+// ── Agents ──────────────────────────────────────────────────────
 async function refreshAgents() {
-  if (!online) return;
   try {
-    const d = await (await fetch(`${BASE}/api/agents`)).json();
-    const agents = d.agents || [];
-    document.getElementById('hdr-agents').innerText = agents.filter(a=>a.status==='running').length;
-    const list = document.getElementById('agent-list');
-    if (!agents.length) {
-      list.innerHTML = '<div class="mono text-[10px] text-[rgba(0,255,157,.25)] text-center pt-4">No agents running</div>';
-      return;
-    }
-    list.innerHTML = '';
-    agents.forEach(a => {
-      const chip = document.createElement('div');
-      chip.className = 'agent-chip';
-      chip.innerHTML = `<span class="status-dot ${a.status==='running'?'run':a.status==='done'?'done':'fail'}"></span>
-        <span class="flex-1 mono text-[10px] text-[rgba(0,255,157,.7)] truncate">${a.name||a.id}</span>
-        ${a.status==='running'?`<button onclick="killAgent('${a.id}')" class="text-[rgba(255,0,60,.5)] hover:text-[var(--r)] text-[10px]"><i class="fas fa-times"></i></button>`:''}`;
-      list.appendChild(chip);
-    });
-  } catch(e) {}
+    const d = await fetch(`${BASE}/api/agents`).then(r=>r.json());
+    const list = d.agents || [];
+    agentCount = list.length;
+    $('hdr-agents').textContent = agentCount;
+    const el = $('agent-list');
+    if (!list.length) { el.innerHTML = '<span class="text-[#00f3ff]/20 italic text-[9px]">no active agents</span>'; return; }
+    el.innerHTML = list.map(a => {
+      const col = a.status==='running'?'#34d399':a.status==='failed'?'#f87171':'#fbbf24';
+      return `<div class="flex items-center justify-between gap-1 py-0.5">
+        <span class="truncate text-[9px]" style="color:${col}">${a.name||a.id}</span>
+        <button onclick="killAgent('${a.id}')" class="text-[#f87171]/50 hover:text-[#f87171] text-[9px]"><i class="fas fa-times"></i></button>
+      </div>`;
+    }).join('');
+  } catch {}
 }
 
 async function killAgent(id) {
-  try { await fetch(`${BASE}/api/agents/${id}/kill`, {method:'POST'}); refreshAgents(); } catch(e) {}
+  await fetch(`${BASE}/api/agents/${id}/kill`,{method:'POST'}).catch(()=>{});
+  sysLog(`Agent ${id} killed`,'warn');
+  refreshAgents();
 }
 
-function spawnAgent() {
-  const task = prompt('Describe agent task:');
-  if (task) sendMsg(`spawn agent to: ${task}`);
+// ── Ollama status ────────────────────────────────────────────────
+async function checkOllama() {
+  try {
+    const d = await fetch(`${BASE}/health`).then(r=>r.json());
+    const v = d.ollama ? (d.ollama.version || 'running') : 'not running';
+    $('ollama-status').textContent = v;
+    $('ollama-status').className = 'mono text-[9px] ' + (d.ollama ? 'text-[#34d399]/70' : 'text-[#f87171]/70');
+  } catch { $('ollama-status').textContent = 'offline'; }
 }
+setInterval(checkOllama, 8000); checkOllama();
 
-// ── Voice ─────────────────────────────────────────────────────────────
-function initVoice() {
-  if (!SPEECH_AVAILABLE) { sysLog('Speech API not available', 'warn'); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'en-US';
-  recognition.onresult = e => {
-    const t = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
-    const wakeHit = WAKE_WORDS.some(w => t.startsWith(w));
-    if (wakeHit) {
-      document.getElementById('wake-bar').classList.add('active');
-      const cmd = WAKE_WORDS.reduce((s,w) => s.replace(w,''), t).trim();
-      if (cmd) sendMsg(cmd);
-      else { addMsg('sys','[ Wake word detected — listening... ]'); setCoreText('LISTENING','SAY YOUR COMMAND'); }
-      setTimeout(() => document.getElementById('wake-bar').classList.remove('active'), 1500);
-    } else if (document.getElementById('mic-btn').classList.contains('active')) {
-      sendMsg(t);
+// ── Send message ────────────────────────────────────────────────
+async function send() {
+  const box = $('input-box');
+  const msg = box.value.trim();
+  if (!msg) return;
+  box.value = ''; autoResize(box);
+
+  if (!online) { addMsg('sys','Backend offline — start J.A.R.V.I.S. first.','err'); return; }
+
+  addMsg('user', msg);
+  showTyping();
+  history.push({role:'user',content:msg});
+  if (history.length > 30) history = history.slice(-28);
+
+  try {
+    const r = await fetch(`${BASE}/api/chat`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message:msg, model:model||'llama3.2:1b', history:history.slice(-18), save:true})
+    });
+    const d = await r.json();
+    hideTyping();
+    const reply = d.response || '';
+    const type  = d.error ? 'err' : '';
+
+    if (!d.error) {
+      history.push({role:'assistant',content:reply});
+      if (d.memory_count) { memCount = d.memory_count; $('hdr-mem').textContent = memCount; }
+      speak(reply);
     }
-  };
-  recognition.onerror = e => { if (e.error !== 'no-speech') sysLog(`Speech error: ${e.error}`, 'warn'); };
-  recognition.onend = () => { try { recognition.start(); } catch(e) {} };
-  try { recognition.start(); sysLog('Voice recognition: active', 'ok'); } catch(e) {}
-}
 
-function toggleMic() {
-  const btn = document.getElementById('mic-btn');
-  btn.classList.toggle('active');
-  if (btn.classList.contains('active')) {
-    addMsg('sys', '[ Microphone active — speak now ]');
-    sysLog('Mic: open', 'ok');
-  } else {
-    sysLog('Mic: closed', 'info');
+    addMsg(d.error ? 'sys' : 'ai', reply, type);
+
+    if (d.pulling) {
+      // Start polling for models
+      if (!pullTimer) triggerPull(d.pulling);
+    }
+
+  } catch(e) {
+    hideTyping();
+    addMsg('sys', 'Connection error: '+e.message, 'err');
   }
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  sysLog('J.A.R.V.I.S. v2.2 interface loaded', 'ok');
-  addMsg('sys', '[ J.A.R.V.I.S. v2.2 — Universal Termux Edition — Initializing... ]');
-  poll(); setInterval(poll, POLL);
-  setInterval(pollMetrics, 3000);
-  setInterval(refreshAgents, 5000);
-  setTimeout(initVoice, 1200);
-  document.getElementById('model-sel').addEventListener('change', e => { model = e.target.value; sysLog(`Model: ${model}`, 'ok'); });
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
 
-  // Load persistent data after initial connection
-  const waitOnline = setInterval(async () => {
-    if (online) {
-      clearInterval(waitOnline);
-      await loadCompat();
-      await loadProfile();
-      await loadMemory();
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120)+'px';
+}
+
+function quickCmd(msg) {
+  $('input-box').value = msg;
+  send();
+}
+
+function clearChat() {
+  ch.innerHTML = '';
+  history = [];
+  sysLog('Chat cleared','info');
+}
+
+// ── Voice ────────────────────────────────────────────────────────
+function initVoice() {
+  if (!SR) {
+    $('wake-bar').innerHTML += '<span class="ml-auto mono text-[9px] text-[#f87171]/50">SPEECH API NOT AVAILABLE IN THIS BROWSER</span>';
+    $('mic-btn').disabled = true;
+    $('mic-btn').style.opacity = '.3';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = e => {
+    const t = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
+    sysLog('Heard: '+t,'info');
+    const woken = WAKE.some(w => t.includes(w));
+    if (woken || micActive) {
+      const clean = WAKE.reduce((s,w)=>s.replace(w,'').trim(), t);
+      if (clean.length > 1) {
+        $('input-box').value = clean;
+        send();
+      }
+      setWakeBar('active');
     }
-  }, 1000);
+  };
+
+  recognition.onerror = e => {
+    if (e.error !== 'no-speech') sysLog('Speech error: '+e.error,'warn');
+  };
+
+  recognition.onend = () => {
+    if (!micActive) return;
+    try { recognition.start(); } catch {}
+  };
+
+  // Start passive wake-word listening
+  try {
+    recognition.start();
+    $('voice-status').textContent = 'ON';
+    $('voice-status').style.color = 'rgba(52,211,153,.8)';
+    sysLog('Voice wake-word active','ok');
+  } catch {}
+}
+
+function toggleMic() {
+  micActive = !micActive;
+  const btn = $('mic-btn');
+  if (micActive) {
+    btn.classList.add('active');
+    setWakeBar('listening');
+    sysLog('Mic activated — speak now','ok');
+  } else {
+    btn.classList.remove('active');
+    setWakeBar('idle');
+    sysLog('Mic deactivated','info');
+  }
+}
+
+function setWakeBar(state) {
+  const bar = $('wake-bar');
+  const lbl = $('wake-label');
+  bar.className = 'flex items-center gap-2 px-4 py-1.5 border-t border-[#00f3ff]/10 mono text-[9px] flex-shrink-0';
+  if (state === 'listening') {
+    bar.classList.add('listening');
+    lbl.textContent = '[ MICROPHONE ACTIVE — SPEAK NOW ]';
+  } else if (state === 'active') {
+    bar.classList.add('speaking');
+    lbl.textContent = '[ WAKE WORD DETECTED — PROCESSING... ]';
+    setTimeout(()=>setWakeBar('idle'), 2500);
+  } else {
+    lbl.textContent = 'WAKE WORD: "HEY JARVIS" — LISTENING';
+  }
+}
+
+function speak(text) {
+  if (!synth) return;
+  const clean = text.replace(/[*_`#\[\]]/g,'').replace(/https?:\/\/\S+/g,'').substring(0,300);
+  const u = new SpeechSynthesisUtterance(clean);
+  u.rate = TTS_CFG.rate; u.pitch = TTS_CFG.pitch; u.volume = TTS_CFG.vol;
+  synth.cancel();
+  synth.speak(u);
+  setWakeBar('speaking');
+  u.onend = () => setWakeBar('idle');
+}
+
+// ── Mobile panel toggle ──────────────────────────────────────────
+function togglePanel(side) {
+  const el = $(side === 'left' ? 'sidebar-left' : 'sidebar-right');
+  el.classList.toggle('mob-show');
+  el.style.display = el.classList.contains('mob-show') ? 'flex' : '';
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  sysLog('J.A.R.V.I.S. v2.3 — initializing...','info');
+  poll(); setInterval(poll, POLL);
+  setInterval(refreshAgents, 6000);
+  setTimeout(initVoice, 800);
+
+  // Greet
+  setTimeout(() => {
+    if (!online) {
+      addMsg('ai', 'Systems initializing... Connecting to backend.');
+    }
+  }, 1200);
 });
 </script>
 </body>
