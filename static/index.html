@@ -811,7 +811,7 @@ async function send() {
     const r = await fetch(`${BASE}/api/chat`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message:msg, model:model||'jarvis', history:history.slice(-18), save:true})
+      body: JSON.stringify({message:msg, model: model || '', history:history.slice(-18), save:true})
     });
 
     // Keep spinner alive — hide only when first token actually arrives
