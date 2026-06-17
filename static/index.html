@@ -420,6 +420,7 @@
         <button id="mic-btn" class="btn btn-mic flex-shrink-0" onclick="toggleMic()" title="Voice input">
           <i class="fas fa-microphone"></i>
         </button>
+        <button class="btn flex-shrink-0" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);color:#818cf8;padding:0 8px;font-size:.65rem" onclick="speak('J.A.R.V.I.S. voice system online')" title="Test TTS">🔊</button>
         <button class="btn btn-send flex-shrink-0" onclick="send()">
           <i class="fas fa-paper-plane mr-1"></i>SEND
         </button>
@@ -902,7 +903,11 @@ function initVoice() {
 
   recognition.onend = () => {
     if (!micActive) return;
-    try { recognition.start(); } catch(e) {}
+    // Use a small delay — immediate restart throws InvalidStateError on Android
+    setTimeout(() => {
+      if (!micActive) return;
+      try { recognition.start(); } catch(e) { sysLog('Mic restart: '+e.message,'warn'); }
+    }, 300);
   };
 
   // DO NOT auto-start — Chrome Android blocks mic without user gesture.
@@ -911,39 +916,30 @@ function initVoice() {
 }
 
 function toggleMic() {
+  if (!recognition) { sysLog('Voice not initialized','warn'); return; }
   if (micActive) {
     // Stop
     micActive = false;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    try { recognition.stop(); } catch(e) {}
     $('mic-btn').classList.remove('active');
     setWakeBar('idle');
     $('voice-status').textContent = 'OFF';
-    sysLog('Mic deactivated','info');
+    sysLog('Mic off','info');
   } else {
-    // Request permission then start
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // Fallback: just start recognition directly (some Android browsers)
-      micActive = true;
-      $('mic-btn').classList.add('active');
-      setWakeBar('listening');
-      $('voice-status').textContent = 'ON';
-      $('voice-status').style.color = '#34d399';
-      if (recognition) { try { recognition.start(); } catch(e) {} }
-      return;
+    // Just start recognition — Chrome handles mic permission dialog itself.
+    // DO NOT call getUserMedia first: it creates a second permission request
+    // that leaves recognition in a broken state on Android Chrome.
+    micActive = true;
+    $('mic-btn').classList.add('active');
+    setWakeBar('listening');
+    $('voice-status').textContent = 'ON';
+    $('voice-status').style.color = '#34d399';
+    try {
+      recognition.start();
+      sysLog('Mic on — speak now 🎤','ok');
+    } catch(e) {
+      sysLog('Mic start error: '+e.message,'warn');
     }
-    navigator.mediaDevices.getUserMedia({audio: true})
-      .then(() => {
-        micActive = true;
-        $('mic-btn').classList.add('active');
-        setWakeBar('listening');
-        $('voice-status').textContent = 'ON';
-        $('voice-status').style.color = '#34d399';
-        sysLog('Mic active — say "Hey Jarvis" or just speak','ok');
-        if (recognition) { try { recognition.start(); } catch(e) {} }
-      })
-      .catch(() => {
-        addMsg('sys','Microphone permission denied. In Chrome, tap the lock icon in the address bar → allow microphone.','err');
-      });
   }
 }
 
@@ -971,20 +967,24 @@ function speak(text) {
   const doSpeak = () => {
     const u = new SpeechSynthesisUtterance(clean);
     u.rate = TTS_CFG.rate; u.pitch = TTS_CFG.pitch; u.volume = TTS_CFG.vol;
+    // Only set a voice if we actually found one — undefined voice breaks Android TTS
     const voices = synth.getVoices();
-    if (voices.length > 0) {
-      u.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-    }
+    const pick = voices.find(v => v.lang.startsWith('en')) || voices[0];
+    if (pick) u.voice = pick;
     u.onend   = () => setWakeBar(micActive ? 'listening' : 'idle');
     u.onerror = (e) => { sysLog('TTS: '+e.error,'warn'); setWakeBar(micActive ? 'listening' : 'idle'); };
     setWakeBar('speaking');
     synth.speak(u);
+    sysLog('TTS: speaking ('+Math.round(clean.length)+' chars)','info');
   };
-  // Android loads voices async — wait if not ready yet
+  // Android loads voices asynchronously; wait if not ready, else use small delay
   if (synth.getVoices().length === 0) {
-    synth.onvoiceschanged = () => { synth.onvoiceschanged = null; setTimeout(doSpeak, 50); };
+    let waited = false;
+    synth.onvoiceschanged = () => { if (waited) return; waited=true; synth.onvoiceschanged=null; setTimeout(doSpeak,50); };
+    // Safety fallback: if onvoiceschanged never fires (some Android), try anyway after 1s
+    setTimeout(() => { if (!waited) { waited=true; doSpeak(); } }, 1000);
   } else {
-    setTimeout(doSpeak, 50); // small delay helps Android release audio focus
+    setTimeout(doSpeak, 50);
   }
 }
 
