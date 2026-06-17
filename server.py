@@ -2,7 +2,7 @@
 J.A.R.V.I.S. Local Backend — Full Edition
 Sub-agent manager, self-rewrite engine, full hardware diagnostics, Ollama proxy.
 """
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import subprocess, json, os, sys, time, threading, shutil, signal
 import urllib.request, urllib.error, base64
@@ -369,10 +369,10 @@ def chat():
     # Resolve to an actually-installed model
     best, pulling = get_best_model(model)
     if best is None:
-        return jsonify({
-            "response": f"⏳ No models installed yet. Auto-pulling **{pulling}** in background — this takes 1–3 minutes on first run. Try again shortly.",
-            "error": True, "pulling": pulling
-        })
+        SSE_HDR = {'X-Accel-Buffering': 'no', 'Cache-Control': 'no-cache'}
+        msg = f"⏳ No models installed yet. Auto-pulling **{pulling}** in background — this takes 1–3 minutes on first run. Try again shortly."
+        def _err(): yield f"data: {json.dumps({'error': True, 'response': msg, 'pulling': pulling})}\n\n"
+        return Response(stream_with_context(_err()), mimetype='text/event-stream', headers=SSE_HDR)
     model = best
     history = data.get('history', [])
     message = data.get('message', '')
@@ -459,30 +459,52 @@ def chat():
     # Add current user message (expanded)
     messages.append({"role": "user", "content": expanded})
 
-    result, err = ollama('/api/chat', {
-        "model"   : model,
-        "messages": messages,
-        "stream"  : False,
-        "options" : {"num_ctx": _device.get('num_ctx', 2048), "temperature": 0.7, "top_p": 0.9}
-    }, timeout=180)
+    # ── Streaming response via SSE ────────────────────────────────────────────
+    SSE_HDR = {'X-Accel-Buffering': 'no', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive'}
+    num_ctx    = _device.get('num_ctx', 2048)
+    _expanded  = expanded
+    _save      = save_ctx
+    _combined  = combined
+    _summary   = mem_summary
+    _model     = model
 
-    if not result:
-        return jsonify({"response": f"[OLLAMA ERROR] {err}", "error": True})
+    def generate():
+        full_reply = []
+        try:
+            r = requests.post(
+                f"{OLLAMA}/api/chat",
+                json={
+                    "model"   : _model,
+                    "messages": messages,
+                    "stream"  : True,
+                    "options" : {"num_ctx": num_ctx, "temperature": 0.7, "top_p": 0.9}
+                },
+                stream=True, timeout=180
+            )
+            for raw in r.iter_lines():
+                if not raw:
+                    continue
+                try:
+                    chunk = json.loads(raw)
+                except Exception:
+                    continue
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    full_reply.append(token)
+                    yield f"data: {json.dumps({'token': token})}\n\n"
+                if chunk.get("done"):
+                    reply_str = "".join(full_reply)
+                    if _save and reply_str:
+                        _combined.append({"role": "user",      "content": _expanded})
+                        _combined.append({"role": "assistant", "content": reply_str})
+                        threading.Thread(
+                            target=save_memory, args=(_combined, _summary), daemon=True
+                        ).start()
+                    yield f"data: {json.dumps({'done': True, 'model': _model, 'memory_count': len(_combined) + 2})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': True, 'response': f'[OLLAMA ERROR] {str(e)}'})}\n\n"
 
-    reply = result.get("message", {}).get("content", "")
-
-    # ── Persist to memory ─────────────────────────────────────────────────────
-    if save_ctx:
-        combined.append({"role": "user",      "content": expanded})
-        combined.append({"role": "assistant",  "content": reply})
-        save_memory(combined, mem_summary)
-
-    return jsonify({
-        "response"    : reply,
-        "model"       : model,
-        "memory_count": len(combined) + 2,
-        "expanded"    : expanded if expanded != message else None,  # tell UI if slang was expanded
-    })
+    return Response(stream_with_context(generate()), mimetype='text/event-stream', headers=SSE_HDR)
 
 # ── SPAWN HANDLER ──────────────────────────────────────────────────────────────
 def _handle_spawn_command(message, model):
