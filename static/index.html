@@ -127,12 +127,16 @@
         <div>
             <h1 class="orb text-2xl font-black tracking-[.18em] text-[#00f3ff] drop-shadow-[0_0_8px_rgba(0,243,255,.5)]">
                 J.A.R.V.I.S.
-                <span class="text-[11px] font-normal border border-[#00f3ff]/30 px-2 py-0.5 rounded ml-2 text-[#00f3ff]/60">v2.0</span>
+                <span class="text-[11px] font-normal border border-[#00f3ff]/30 px-2 py-0.5 rounded ml-2 text-[#00f3ff]/60">v2.2</span>
             </h1>
             <div class="mono text-[10px] tracking-[.2em] flex items-center gap-3 mt-0.5" id="srv-ind">
                 <span class="text-[#00f3ff]/50">BACKEND: POLLING...</span>
                 <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span>
             </div>
+            <!-- Device compat badge -->
+            <div id="compat-badge" style="display:none" class="mono text-[9px] text-[#00f3ff]/30 tracking-widest mt-0.5"></div>
+            <!-- Offline / ARM32 notice -->
+            <div id="offline-notice" class="hidden mono text-[9px] text-yellow-400/70 tracking-widest mt-0.5"></div>
         </div>
     </div>
 
@@ -353,6 +357,45 @@ const TTS = {
     pitch   : 0.8,
     volume  : 1.0,
 };
+
+// ── Device compatibility ──────────────────────────────────────────────
+let deviceCompat = {
+    low_ram: false, arm32: false, offline_mode: false,
+    recommended_model: 'llama3.2:1b', num_ctx: 2048, ram_mb: 4096
+};
+const SPEECH_AVAILABLE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const TTS_AVAILABLE    = !!(window.speechSynthesis);
+
+async function loadCompat() {
+    try {
+        const d = await (await fetch(`${BASE}/api/compat`, {signal: AbortSignal.timeout(3000)})).json();
+        deviceCompat = d;
+        const badge = document.getElementById('compat-badge');
+        if (badge) {
+            badge.innerText = `${d.arch}  ${d.ram_mb}MB  Android ${d.android}`;
+            badge.style.display = 'block';
+        }
+        if (d.offline_mode || d.arm32) {
+            sysLog(`[COMPAT] ARM32/offline mode — voice AI disabled`, 'warn');
+            showOfflineNotice(d.arm32 ? 'ARM32 device — Ollama unavailable. Text UI only.' : 'Offline mode active.');
+        }
+        if (d.low_ram) sysLog(`[COMPAT] Low RAM (${d.ram_mb}MB) — using compact context`, 'warn');
+        if (!SPEECH_AVAILABLE) {
+            sysLog('[COMPAT] Speech API not available — text input only', 'warn');
+            const micBtn = document.getElementById('mic-btn');
+            if (micBtn) { micBtn.disabled = true; micBtn.style.opacity = '0.3'; micBtn.title = 'Voice not available in this browser'; }
+        }
+        if (!TTS_AVAILABLE) {
+            sysLog('[COMPAT] TTS not available — silent mode', 'warn');
+            TTS.enabled = false;
+        }
+    } catch(e) { /* server not up yet — compat loads after first poll */ }
+}
+
+function showOfflineNotice(msg) {
+    const n = document.getElementById('offline-notice');
+    if (n) { n.innerText = '⚠ ' + msg; n.classList.remove('hidden'); }
+}
 
 // ── State ────────────────────────────────────────────────────────────
 let online       = false;
@@ -1003,8 +1046,9 @@ window.addEventListener('load', () => {
     poll(); setInterval(poll, POLL);
     setInterval(refreshAgents, 5000);
     setTimeout(initVoice, 1000);
-    // Load persistent memory + user profile
+    // Load device compat + persistent memory + profile
     setTimeout(async () => {
+        await loadCompat();
         if (online) {
             await loadProfile();
             await loadMemory();
