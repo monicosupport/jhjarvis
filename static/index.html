@@ -136,7 +136,7 @@
         </div>
     </div>
 
-    <!-- Center strip: agent count + rewrite history -->
+    <!-- Center strip: agent count + rewrite history + MEMORY -->
     <div class="flex items-center gap-6 mono text-[10px] text-[#00f3ff]/50">
         <div class="flex items-center gap-2">
             <i class="fas fa-robot text-[#00ff88]/60"></i>
@@ -145,6 +145,10 @@
         <div class="flex items-center gap-2">
             <i class="fas fa-code text-[#f59e0b]/60"></i>
             <span>REWRITES: </span><span id="hdr-rewrite-count" class="text-[#f59e0b] font-bold">0</span>
+        </div>
+        <div class="flex items-center gap-2 cursor-pointer hover:text-[#00f3ff]" onclick="showMemoryPanel()" title="Click to manage memory">
+            <i class="fas fa-brain text-[#a78bfa]/70"></i>
+            <span>MEMORY: </span><span id="hdr-mem-count" class="text-[#a78bfa] font-bold">0</span>
         </div>
         <div id="rewrite-indicator" class="hidden px-2 py-0.5 rounded text-[#f59e0b] border border-[#f59e0b]/40 badge text-[9px]">
             <i class="fas fa-sync fa-spin mr-1"></i>SELF-REWRITING
@@ -351,13 +355,67 @@ const TTS = {
 };
 
 // ── State ────────────────────────────────────────────────────────────
-let online   = false;
-let history  = [];  // conversation history
-let model    = '';
-let vmMode   = 'wake';  // 'wake' | 'cmd' | 'off'
-let recognition = null;
-let speaking = false;
+let online       = false;
+let history      = [];  // in-session conversation history
+let model        = '';
+let vmMode       = 'wake';  // 'wake' | 'cmd' | 'off'
+let recognition  = null;
+let speaking     = false;
 let rewriteCount = 0;
+let memCount     = 0;
+let userProfile  = { name: 'Boss' };
+
+// ── Memory helpers ────────────────────────────────────────────────────
+async function loadMemory() {
+    try {
+        const d = await (await fetch(`${CFG.baseUrl}/api/memory`)).json();
+        memCount = d.count || 0;
+        document.getElementById('hdr-mem-count').innerText = memCount;
+
+        // Load recent history into local session
+        if (d.messages && d.messages.length && history.length === 0) {
+            history = d.messages.slice(-10);
+            sysLog(`Loaded ${memCount} memories from disk`, 'ok');
+            addCommLog('MEM', `Memory restored: ${memCount} messages${d.summary ? ' — "' + d.summary.slice(0,60) + '…"' : ''}`, 'sys');
+        }
+        if (d.summary) {
+            sysLog(`Summary: ${d.summary.slice(0,80)}...`, 'ok');
+        }
+    } catch(e) { sysLog('Memory load failed', 'warn'); }
+}
+
+async function loadProfile() {
+    try {
+        const d = await (await fetch(`${CFG.baseUrl}/api/profile`)).json();
+        userProfile = d;
+        if (d.name) sysLog(`Profile loaded — Hello, ${d.name}`, 'ok');
+    } catch(e) {}
+}
+
+function showMemoryPanel() {
+    const panel = document.getElementById('mem-modal');
+    if (panel) panel.classList.remove('hidden');
+}
+
+function hideMemoryPanel() {
+    const panel = document.getElementById('mem-modal');
+    if (panel) panel.classList.add('hidden');
+}
+
+async function clearMemory() {
+    if (!confirm('Clear all saved memory? (A backup will be saved to workspace)')) return;
+    try {
+        const d = await (await fetch(`${CFG.baseUrl}/api/memory/clear`,{method:'POST'})).json();
+        if (d.success) {
+            history = [];
+            memCount = 0;
+            document.getElementById('hdr-mem-count').innerText = 0;
+            sysLog('Memory cleared.', 'warn');
+            addCommLog('MEM', 'Conversation memory cleared. Fresh start.', 'sys');
+        }
+    } catch(e) { sysLog('Clear failed', 'err'); }
+    hideMemoryPanel();
+}
 
 // ────────────────────────────────────────────────────────────────────
 // CLOCK
@@ -557,6 +615,8 @@ async function send(msg) {
     setCoreText('PROCESSING', false);
 
     history.push({role:'user', content: msg});
+    // Keep local history from ballooning (server handles real persistence)
+    if (history.length > 30) history = history.slice(-30);
 
     try {
         const res = await fetch(`${BASE}/api/chat`, {
@@ -565,7 +625,8 @@ async function send(msg) {
             body   : JSON.stringify({
                 message : msg,
                 model   : model || 'llama3',
-                history : history.slice(-10)
+                history : history.slice(-20),
+                save    : true
             })
         });
         const data = await res.json();
@@ -573,6 +634,16 @@ async function send(msg) {
 
         const reply = data.response || '';
         history.push({role:'assistant', content: reply});
+
+        // Update memory counter from response
+        if (data.memory_count) {
+            memCount = data.memory_count;
+            document.getElementById('hdr-mem-count').innerText = memCount;
+        }
+        // Show if slang was expanded
+        if (data.expanded && data.expanded !== msg) {
+            sysLog(`Interpreted: "${data.expanded.slice(0,60)}"`, 'ok');
+        }
 
         // Detect special response types
         if (data.spawned) {
@@ -932,7 +1003,82 @@ window.addEventListener('load', () => {
     poll(); setInterval(poll, POLL);
     setInterval(refreshAgents, 5000);
     setTimeout(initVoice, 1000);
+    // Load persistent memory + user profile
+    setTimeout(async () => {
+        if (online) {
+            await loadProfile();
+            await loadMemory();
+        } else {
+            // Wait for connection, then load
+            const waitAndLoad = setInterval(async () => {
+                if (online) {
+                    clearInterval(waitAndLoad);
+                    await loadProfile();
+                    await loadMemory();
+                }
+            }, 1500);
+        }
+    }, 2000);
 });
+
+// ────────────────────────────────────────────────────────────────────
+// MEMORY MODAL (injected as overlay)
+// ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.createElement('div');
+    modal.id = 'mem-modal';
+    modal.className = 'hidden fixed inset-0 z-50 flex items-center justify-center';
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="hideMemoryPanel()"></div>
+        <div class="relative gp rounded-xl p-6 w-96 z-10 border border-[#a78bfa]/40" style="background:rgba(10,5,30,.9)">
+            <div class="gp::before" style="border-color:#a78bfa"></div>
+            <h2 class="orb text-sm font-bold text-[#a78bfa] tracking-widest mb-4 flex items-center gap-2">
+                <i class="fas fa-brain"></i> MEMORY CORE
+            </h2>
+            <div class="mono text-xs text-[#00f3ff]/70 space-y-2 mb-5">
+                <div class="flex justify-between">
+                    <span>Saved messages</span>
+                    <span id="modal-mem-count" class="text-[#a78bfa] font-bold">—</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>User profile name</span>
+                    <span id="modal-profile-name" class="text-[#00ff88]">—</span>
+                </div>
+                <div id="modal-summary" class="text-[#00f3ff]/40 text-[10px] italic mt-2 leading-relaxed"></div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="refreshMemModal()" class="flex-1 mono text-[11px] border border-[#00f3ff]/30 rounded py-2 hover:bg-[#00f3ff]/10 text-[#00f3ff]/60 hover:text-[#00f3ff]">
+                    <i class="fas fa-sync mr-1"></i> REFRESH
+                </button>
+                <button onclick="clearMemory()" class="flex-1 mono text-[11px] border border-[#ff003c]/30 rounded py-2 hover:bg-[#ff003c]/10 text-[#ff003c]/60 hover:text-[#ff003c]">
+                    <i class="fas fa-trash mr-1"></i> CLEAR
+                </button>
+                <button onclick="hideMemoryPanel()" class="mono text-[11px] border border-[#00f3ff]/20 rounded px-4 py-2 hover:bg-[#00f3ff]/5 text-[#00f3ff]/40">
+                    CLOSE
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+});
+
+async function refreshMemModal() {
+    try {
+        const d = await (await fetch(`${CFG.baseUrl}/api/memory`)).json();
+        document.getElementById('modal-mem-count').innerText = d.count || 0;
+        document.getElementById('modal-profile-name').innerText = userProfile.name || '—';
+        if (d.summary) {
+            document.getElementById('modal-summary').innerText = '"' + d.summary + '"';
+        }
+    } catch(e) {}
+}
+
+// Override showMemoryPanel to also refresh data
+const _origShowMem = showMemoryPanel;
+window.showMemoryPanel = function() {
+    _origShowMem();
+    refreshMemModal();
+};
 </script>
 </body>
 </html>
