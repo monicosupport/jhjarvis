@@ -267,6 +267,29 @@ def ollama(path, payload=None, timeout=120):
     except Exception as e:
         return None, str(e)
 
+def get_installed_models():
+    result, _ = ollama('/api/tags', timeout=5)
+    if result:
+        return [m['name'] for m in result.get('models', [])]
+    return []
+
+def get_best_model(requested=None):
+    """Return (model_name, None) if ready, or (None, pulling_target) if not."""
+    models = get_installed_models()
+    if models:
+        if requested:
+            base = requested.split(':')[0].lower()
+            for m in models:
+                if base in m.lower():
+                    return m, None
+        return models[0], None
+    # Nothing installed — kick off auto-pull in background
+    target = _device.get('recommended_model', 'llama3.2:1b')
+    def _pull():
+        ollama('/api/pull', {'name': target, 'stream': False}, timeout=600)
+    threading.Thread(target=_pull, daemon=True).start()
+    return None, target
+
 def ollama_generate(prompt, model='llama3', system=None):
     """Simple one-shot generation. Returns text or None."""
     messages = []
@@ -320,14 +343,39 @@ def compat():
 @app.route('/api/models')
 def models():
     result, err = ollama('/api/tags')
+    installed = []
     if result:
-        return jsonify({"models": [m['name'] for m in result.get('models', [])]})
-    return jsonify({"models": [], "error": err})
+        installed = [m['name'] for m in result.get('models', [])]
+    return jsonify({
+        "models"   : installed,
+        "count"    : len(installed),
+        "error"    : err,
+        "suggested": _device.get('recommended_model', 'llama3.2:1b'),
+    })
+
+@app.route('/api/pull', methods=['POST'])
+def pull_model():
+    """Trigger a model pull."""
+    name = (request.json or {}).get('name', _device.get('recommended_model', 'llama3.2:1b'))
+    def _do_pull():
+        ollama('/api/pull', {'name': name, 'stream': False}, timeout=600)
+    threading.Thread(target=_do_pull, daemon=True).start()
+    return jsonify({"status": "pulling", "model": name,
+                    "message": f"Pulling {name} in background. Check /api/models in ~2 min."})
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data    = request.json or {}
-    model   = data.get('model', 'llama3')
+    model   = data.get('model', _device.get('recommended_model', 'llama3.2:1b'))
+
+    # Resolve to an actually-installed model
+    best, pulling = get_best_model(model)
+    if best is None:
+        return jsonify({
+            "response": f"⏳ No models installed yet. Auto-pulling **{pulling}** in background — this takes 1–3 minutes on first run. Try again shortly.",
+            "error": True, "pulling": pulling
+        })
+    model = best
     history = data.get('history', [])
     message = data.get('message', '')
     save_ctx = data.get('save', True)
