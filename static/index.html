@@ -3,944 +3,935 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J.A.R.V.I.S. | Local Agent Client</title>
+    <title>J.A.R.V.I.S. | FULL EDITION v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
-            --jarvis-cyan: #00f3ff;
-            --jarvis-blue: #0a2540;
-            --jarvis-dark: #020610;
-            --jarvis-alert: #ff003c;
-            --glass-bg: rgba(2, 6, 16, 0.65);
-            --glass-border: rgba(0, 243, 255, 0.15);
+            --c: #00f3ff;
+            --cd: #020610;
+            --cr: #ff003c;
+            --cg: #00ff88;
+            --cy: #f59e0b;
+            --glass: rgba(2,6,16,.7);
+            --border: rgba(0,243,255,.18);
         }
-        body {
-            font-family: 'Rajdhani', sans-serif;
-            background-color: var(--jarvis-dark);
+        *{box-sizing:border-box}
+        html,body{height:100%;overflow:hidden}
+        body{
+            font-family:'Rajdhani',sans-serif;
+            background:var(--cd);
             background-image:
-                radial-gradient(circle at 50% 50%, rgba(0,243,255,0.05) 0%, transparent 60%),
-                linear-gradient(rgba(0,243,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,243,255,0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 40px 40px, 40px 40px;
-            color: var(--jarvis-cyan);
-            overflow: hidden;
+                radial-gradient(ellipse at 50% 40%, rgba(0,243,255,.06) 0%, transparent 65%),
+                linear-gradient(rgba(0,243,255,.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,243,255,.025) 1px, transparent 1px);
+            background-size:100% 100%, 36px 36px, 36px 36px;
+            color:var(--c);
         }
-        .font-mono-tech { font-family: 'Share Tech Mono', monospace; }
-        .font-orbitron  { font-family: 'Orbitron', sans-serif; }
+        .mono{font-family:'Share Tech Mono',monospace}
+        .orb{font-family:'Orbitron',sans-serif}
 
-        .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 0 20px rgba(0,243,255,0.05), inset 0 0 20px rgba(0,243,255,0.02);
-            position: relative;
+        /* Glass panel */
+        .gp{
+            background:var(--glass);
+            backdrop-filter:blur(14px);
+            border:1px solid var(--border);
+            box-shadow:0 0 24px rgba(0,243,255,.04),inset 0 0 16px rgba(0,243,255,.02);
+            position:relative;
         }
-        .glass-panel::before {
-            content:''; position:absolute; top:0; left:0; width:10px; height:10px;
-            border-top:2px solid var(--jarvis-cyan); border-left:2px solid var(--jarvis-cyan);
-        }
-        .glass-panel::after {
-            content:''; position:absolute; bottom:0; right:0; width:10px; height:10px;
-            border-bottom:2px solid var(--jarvis-cyan); border-right:2px solid var(--jarvis-cyan);
-        }
-        .scanlines {
-            position:fixed; top:0; left:0; width:100vw; height:100vh;
-            background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%);
-            background-size:100% 4px; pointer-events:none; z-index:9999; opacity:0.6;
-        }
-        ::-webkit-scrollbar { width:3px; }
-        ::-webkit-scrollbar-track { background:transparent; }
-        ::-webkit-scrollbar-thumb { background:rgba(0,243,255,0.3); }
+        .gp::before{content:'';position:absolute;top:0;left:0;width:8px;height:8px;border-top:2px solid var(--c);border-left:2px solid var(--c)}
+        .gp::after{content:'';position:absolute;bottom:0;right:0;width:8px;height:8px;border-bottom:2px solid var(--c);border-right:2px solid var(--c)}
 
-        @keyframes rotate-cw  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
-        @keyframes rotate-ccw { from{transform:rotate(360deg)} to{transform:rotate(0deg)}   }
-        @keyframes wakeword-pulse {
-            0%,100% { box-shadow:0 0 0 0 rgba(0,243,255,0.7); }
-            50%      { box-shadow:0 0 0 18px rgba(0,243,255,0); }
-        }
-        @keyframes listening-pulse {
-            0%,100% { box-shadow:0 0 0 0 rgba(255,0,60,0.7); }
-            50%      { box-shadow:0 0 0 18px rgba(255,0,60,0); }
-        }
-        .spin-cw-slow  { animation:rotate-cw  20s linear infinite; }
-        .spin-ccw-slow { animation:rotate-ccw 25s linear infinite; }
+        /* Scanlines */
+        .scan{position:fixed;top:0;left:0;width:100vw;height:100vh;background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.2) 50%);background-size:100% 4px;pointer-events:none;z-index:9999;opacity:.55}
 
-        /* Wake-word always-on ring */
-        #btn-voice-link.wakeword-mode {
-            border-color: rgba(0,243,255,0.5) !important;
-            animation: wakeword-pulse 2s infinite;
-        }
-        /* Active listening ring */
-        #btn-voice-link.listening-mode {
-            border-color: #ff003c !important;
-            color: #ff003c !important;
-            animation: listening-pulse 0.8s infinite;
-        }
-        /* Speaking ring */
-        #btn-voice-link.speaking-mode {
-            border-color: #00f3ff !important;
-            color: #00f3ff !important;
-            animation: wakeword-pulse 0.5s infinite;
-        }
+        /* Scrollbar */
+        ::-webkit-scrollbar{width:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(0,243,255,.25)}
 
-        .comm-msg-user { color:#00f3ff; }
-        .comm-msg-ai   { color:rgba(0,243,255,0.75); }
-        .comm-msg-err  { color:#ff003c; }
-        .comm-msg-sys  { color:rgba(0,243,255,0.4); }
+        /* Animations */
+        @keyframes cw{to{transform:rotate(360deg)}}
+        @keyframes ccw{to{transform:rotate(-360deg)}}
+        @keyframes blink{0%,100%{opacity:.15}50%{opacity:1}}
+        @keyframes wake-ring{0%,100%{box-shadow:0 0 0 0 rgba(0,243,255,.6)}60%{box-shadow:0 0 0 14px rgba(0,243,255,0)}}
+        @keyframes cmd-ring{0%,100%{box-shadow:0 0 0 0 rgba(255,0,60,.7)}60%{box-shadow:0 0 0 14px rgba(255,0,60,0)}}
+        @keyframes speak-ring{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,.6)}60%{box-shadow:0 0 0 10px rgba(0,255,136,0)}}
+        @keyframes spawn-flash{0%,100%{background:rgba(0,255,136,.05)}50%{background:rgba(0,255,136,.15)}}
+        @keyframes slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-        select.hud-select {
-            background: rgba(0,243,255,0.05);
-            border: 1px solid rgba(0,243,255,0.2);
-            color: #00f3ff;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 2px;
-            outline: none;
+        .spin-cw {animation:cw 18s linear infinite}
+        .spin-ccw{animation:ccw 24s linear infinite}
+        .blink    {animation:blink 2s ease-in-out infinite}
+
+        /* Mic states */
+        #mic-btn.wake {animation:wake-ring 2s infinite;border-color:rgba(0,243,255,.5)!important;color:rgba(0,243,255,.5)!important}
+        #mic-btn.cmd  {animation:cmd-ring .8s infinite;border-color:var(--cr)!important;color:var(--cr)!important}
+        #mic-btn.speak{animation:speak-ring .5s infinite;border-color:var(--cg)!important;color:var(--cg)!important}
+
+        /* Agent card */
+        .agent-card{
+            background:rgba(0,255,136,.04);
+            border:1px solid rgba(0,255,136,.2);
+            border-radius:4px;padding:8px 10px;
+            animation:slide-in .3s ease;
         }
-        select.hud-select option { background:#020610; }
+        .agent-card.running {border-color:rgba(0,255,136,.3)}
+        .agent-card.killed  {border-color:rgba(255,0,60,.25);background:rgba(255,0,60,.03)}
+        .agent-card.completed{border-color:rgba(0,243,255,.2);background:rgba(0,243,255,.03)}
+        .agent-card.failed  {border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.03)}
+        .agent-card.spawning{animation:spawn-flash .5s infinite;border-color:rgba(0,255,136,.4)}
+
+        /* Chat bubble */
+        .chat-user{color:var(--c);border-left:2px solid rgba(0,243,255,.5)}
+        .chat-ai  {color:rgba(0,243,255,.8);border-left:2px solid rgba(0,243,255,.2)}
+        .chat-sys {color:rgba(0,243,255,.4);border-left:2px solid rgba(0,243,255,.1)}
+        .chat-err {color:var(--cr);border-left:2px solid rgba(255,0,60,.4)}
+        .chat-agent{color:var(--cg);border-left:2px solid rgba(0,255,136,.4)}
+        .chat-rewrite{color:var(--cy);border-left:2px solid rgba(245,158,11,.4)}
+
+        /* Status badge */
+        .badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:1px 5px;border-radius:2px}
+        .badge-run{background:rgba(0,255,136,.15);color:var(--cg);border:1px solid rgba(0,255,136,.3)}
+        .badge-kill{background:rgba(255,0,60,.1);color:var(--cr);border:1px solid rgba(255,0,60,.3)}
+        .badge-done{background:rgba(0,243,255,.1);color:var(--c);border:1px solid rgba(0,243,255,.2)}
+        .badge-fail{background:rgba(245,158,11,.1);color:var(--cy);border:1px solid rgba(245,158,11,.3)}
+
+        /* HUD bar */
+        .hud-bar{height:6px;background:rgba(0,243,255,.08);border-radius:3px;overflow:hidden;position:relative}
+        .hud-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
+        /* Input focus */
+        #chat-input:focus{outline:none;caret-color:var(--c)}
+        select.sel{background:rgba(0,243,255,.05);border:1px solid rgba(0,243,255,.2);color:var(--c);font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 6px;border-radius:2px;outline:none}
+        select.sel option{background:#020610}
+
+        /* Tooltip */
+        [title]{cursor:pointer}
     </style>
 </head>
-<body class="h-full flex flex-col relative text-sm select-none">
+<body class="flex flex-col h-full text-sm select-none relative">
+<div class="scan"></div>
+<canvas id="bgc" class="absolute inset-0 w-full h-full pointer-events-none opacity-25"></canvas>
 
-<div class="scanlines"></div>
-<canvas id="bg-canvas" class="absolute inset-0 w-full h-full opacity-30 pointer-events-none"></canvas>
+<!-- ═══ HEADER ═══════════════════════════════════════════════════════════════ -->
+<header class="flex items-center justify-between px-5 py-3 z-20 border-b border-[#00f3ff]/10">
 
-<!-- ── HEADER ──────────────────────────────────────────────────────────────── -->
-<header class="p-4 flex justify-between items-start z-10">
+    <!-- Logo -->
     <div class="flex items-center gap-4">
-        <div class="relative w-16 h-16 flex items-center justify-center">
-            <div class="absolute inset-0 rounded-full border-2 border-dashed border-[#00f3ff] opacity-40 spin-cw-slow"></div>
-            <div class="absolute inset-2 rounded-full border border-[#00f3ff] opacity-60 spin-ccw-slow"></div>
-            <div id="core-eye" class="w-6 h-6 rounded-full bg-[#00f3ff] opacity-20 shadow-[0_0_15px_#00f3ff]"></div>
+        <div class="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
+            <div class="absolute inset-0 rounded-full border-2 border-dashed border-[#00f3ff]/35 spin-cw"></div>
+            <div class="absolute inset-[6px] rounded-full border border-[#00f3ff]/55 spin-ccw"></div>
+            <div id="core-eye" class="w-5 h-5 rounded-full bg-[#00f3ff]/20 shadow-[0_0_12px_#00f3ff] blink"></div>
         </div>
         <div>
-            <h1 class="font-orbitron text-3xl font-black tracking-widest text-[#00f3ff] drop-shadow-[0_0_8px_rgba(0,243,255,0.5)]">
-                J.A.R.V.I.S. <span class="text-sm border border-[#00f3ff]/30 px-2 py-0.5 rounded text-[#00f3ff]/70 ml-2">LOCAL CLIENT</span>
+            <h1 class="orb text-2xl font-black tracking-[.18em] text-[#00f3ff] drop-shadow-[0_0_8px_rgba(0,243,255,.5)]">
+                J.A.R.V.I.S.
+                <span class="text-[11px] font-normal border border-[#00f3ff]/30 px-2 py-0.5 rounded ml-2 text-[#00f3ff]/60">v2.0</span>
             </h1>
-            <div class="font-mono-tech text-xs tracking-[0.2em] mt-1 flex items-center gap-3" id="server-status-indicator">
-                <span class="text-[#00f3ff]/60">BACKEND: POLLING...</span>
-                <span class="w-1 h-1 rounded-full bg-yellow-500 animate-ping"></span>
+            <div class="mono text-[10px] tracking-[.2em] flex items-center gap-3 mt-0.5" id="srv-ind">
+                <span class="text-[#00f3ff]/50">BACKEND: POLLING...</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span>
             </div>
         </div>
     </div>
-    <div class="text-right glass-panel px-6 py-2 rounded-bl-2xl">
-        <div id="clock-time" class="font-orbitron text-2xl font-bold text-[#00f3ff] tracking-widest">00:00:00</div>
-        <div id="clock-date" class="font-mono-tech text-xs tracking-widest text-[#00f3ff]/60 uppercase">XX/XX/XXXX</div>
+
+    <!-- Center strip: agent count + rewrite history -->
+    <div class="flex items-center gap-6 mono text-[10px] text-[#00f3ff]/50">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-robot text-[#00ff88]/60"></i>
+            <span>SUB-AGENTS: </span><span id="hdr-agent-count" class="text-[#00ff88] font-bold">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <i class="fas fa-code text-[#f59e0b]/60"></i>
+            <span>REWRITES: </span><span id="hdr-rewrite-count" class="text-[#f59e0b] font-bold">0</span>
+        </div>
+        <div id="rewrite-indicator" class="hidden px-2 py-0.5 rounded text-[#f59e0b] border border-[#f59e0b]/40 badge text-[9px]">
+            <i class="fas fa-sync fa-spin mr-1"></i>SELF-REWRITING
+        </div>
+        <div id="spawn-indicator" class="hidden px-2 py-0.5 rounded text-[#00ff88] border border-[#00ff88]/40 badge text-[9px]">
+            <i class="fas fa-circle-notch fa-spin mr-1"></i>SPAWNING AGENT
+        </div>
+    </div>
+
+    <!-- Clock -->
+    <div class="text-right gp px-5 py-1.5 rounded-bl-2xl">
+        <div id="clk" class="orb text-xl font-bold text-[#00f3ff] tracking-widest">00:00:00</div>
+        <div id="clkd" class="mono text-[10px] tracking-widest text-[#00f3ff]/50 uppercase">---</div>
     </div>
 </header>
 
-<!-- ── MAIN GRID ───────────────────────────────────────────────────────────── -->
-<main class="flex-1 grid grid-cols-12 gap-4 p-4 z-10 overflow-hidden">
+<!-- ═══ MAIN GRID ═══════════════════════════════════════════════════════════ -->
+<main class="flex-1 grid grid-cols-12 gap-3 p-3 z-10 overflow-hidden min-h-0">
 
-    <!-- LEFT: Code Workspace + Conversation Log -->
-    <div class="col-span-3 flex flex-col gap-4">
+    <!-- ── LEFT: Agent Commander ─────────────────────────────────────────── -->
+    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
 
-        <!-- Code Workspace -->
-        <div class="glass-panel p-4 flex flex-col h-1/3">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/20 pb-2 mb-3">
-                <h2 class="font-orbitron text-sm tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-code"></i> CODE WORKSPACE
+        <!-- Model + Stats strip -->
+        <div class="gp px-4 py-2 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 mono text-[10px]">
+                <span class="text-[#00f3ff]/50">MODEL</span>
+                <select id="model-sel" class="sel" onchange="onModelChange(this.value)">
+                    <option value="">LOADING...</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-3 mono text-[10px] text-[#00f3ff]/50">
+                <span>CPU <span id="mini-cpu" class="text-[#00f3ff]">--%</span></span>
+                <span>RAM <span id="mini-ram" class="text-[#00f3ff]">--%</span></span>
+            </div>
+        </div>
+
+        <!-- Agent Commander panel -->
+        <div class="gp p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="flex justify-between items-center border-b border-[#00ff88]/20 pb-2 mb-3 flex-shrink-0">
+                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00ff88]">
+                    <i class="fas fa-robot"></i> AGENT COMMANDER
                 </h2>
-                <span class="text-[10px] font-mono-tech bg-[#00f3ff]/10 px-1 rounded" id="ws-file-count">0 FILES</span>
-            </div>
-            <div class="flex-1 flex flex-col justify-center relative overflow-hidden">
-                <div class="text-center z-10 relative">
-                    <div class="text-xs font-mono-tech text-[#00f3ff]/60 mb-1">AUTO-SAVED BY AI</div>
-                    <div id="ws-last-file" class="font-mono-tech text-sm text-[#00f3ff] truncate">—</div>
-                    <div class="w-full h-1 bg-[#002233] mt-4 relative overflow-hidden">
-                        <div id="ws-progress" class="absolute top-0 left-0 h-full bg-[#00f3ff] w-[0%] transition-all duration-1000"></div>
-                    </div>
-                    <div class="flex justify-between mt-1 font-mono-tech text-[10px] text-[#00f3ff]/50">
-                        <span>0</span><span>TARGET: 100 FILES</span>
-                    </div>
-                </div>
-            </div>
-            <div class="mt-2 grid grid-cols-2 gap-2 text-center font-mono-tech text-[10px]">
-                <div class="bg-[#00f3ff]/5 border border-[#00f3ff]/20 py-1 rounded">
-                    <div class="text-[#00f3ff]/50">AI STATUS</div>
-                    <div id="ai-status-badge" class="text-gray-500 font-bold">IDLE</div>
-                </div>
-                <div class="bg-[#00f3ff]/5 border border-[#00f3ff]/20 py-1 rounded">
-                    <div class="text-[#00f3ff]/50">SAVED FILES</div>
-                    <div id="ws-saved-count" class="text-[#00f3ff] font-bold">0</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Conversation History -->
-        <div class="glass-panel p-4 flex flex-col flex-1 overflow-hidden">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/20 pb-2 mb-3">
-                <h2 class="font-orbitron text-sm tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-comments"></i> COMM HISTORY
-                </h2>
-                <button onclick="clearHistory()" class="text-xs text-[#00f3ff]/40 hover:text-[#ff003c]" title="Clear history">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>
-            <div id="comm-history" class="flex-1 overflow-y-auto pr-2 font-mono-tech text-[10px] space-y-2 text-[#00f3ff]/70">
-                <div class="text-gray-500 italic">Awaiting first contact...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CENTER: Core + Voice -->
-    <div class="col-span-6 flex flex-col relative">
-        <div class="flex-1 relative flex items-center justify-center">
-            <div class="absolute w-[80%] h-[80%] rounded-full border border-[#00f3ff]/10 spin-cw-slow pointer-events-none"></div>
-            <canvas id="jarvis-core-canvas" class="absolute w-full h-full z-10"></canvas>
-            <div class="absolute z-20 flex flex-col items-center pointer-events-none">
-                <div id="core-status-text" class="font-orbitron tracking-[0.3em] text-gray-500 text-xs mb-2">SYSTEM OFFLINE</div>
-                <div id="wake-status" class="font-mono-tech text-[10px] text-[#00f3ff]/40 tracking-widest">SAY "HEY JARVIS" TO ACTIVATE</div>
-            </div>
-        </div>
-
-        <!-- Voice + Input Panel -->
-        <div class="glass-panel p-4 rounded-t-xl mt-4 border-b-0 relative z-30">
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-[#00f3ff] shadow-[0_0_10px_#00f3ff]"></div>
-
-            <!-- Model selector row -->
-            <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
-                    <span class="font-mono-tech text-[10px] text-[#00f3ff]/50 tracking-widest">MODEL:</span>
-                    <select id="model-select" class="hud-select" onchange="onModelChange(this.value)">
-                        <option value="">LOADING...</option>
-                    </select>
-                </div>
-                <div id="voice-status-indicator" class="font-mono-tech text-[10px] tracking-widest text-[#00f3ff]/50">
-                    COMM LINK: IDLE
+                    <span id="ac-count" class="badge badge-run">0 ACTIVE</span>
+                    <button onclick="refreshAgents()" title="Refresh" class="text-[#00ff88]/40 hover:text-[#00ff88] mono text-[10px]"><i class="fas fa-sync"></i></button>
                 </div>
             </div>
 
+            <!-- Quick spawn -->
+            <div class="flex-shrink-0 mb-3">
+                <form onsubmit="quickSpawn(event)" class="flex gap-2">
+                    <input id="spawn-input" type="text" placeholder='task description...'
+                        class="flex-1 bg-[#00ff88]/5 border border-[#00ff88]/20 text-[#00ff88] mono text-[10px] px-2 py-1 rounded-sm placeholder-[#00ff88]/25 focus:outline-none focus:border-[#00ff88]/50">
+                    <button type="submit" class="bg-[#00ff88]/10 border border-[#00ff88]/30 text-[#00ff88] mono text-[10px] px-3 py-1 rounded-sm hover:bg-[#00ff88]/20">
+                        <i class="fas fa-plus"></i> SPAWN
+                    </button>
+                </form>
+            </div>
+
+            <!-- Agent cards list -->
+            <div id="agent-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <div class="mono text-[10px] text-[#00ff88]/30 italic text-center mt-4">
+                    No sub-agents running.<br>Say "spawn agent to [task]" or use the form above.
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── CENTER: Core + Chat ───────────────────────────────────────────── -->
+    <section class="col-span-6 flex flex-col min-h-0 gap-3">
+
+        <!-- Core orb + status -->
+        <div class="flex-1 relative flex items-center justify-center min-h-0">
+            <div class="absolute w-[72%] h-[72%] rounded-full border border-[#00f3ff]/08 spin-cw pointer-events-none"></div>
+            <div class="absolute w-[55%] h-[55%] rounded-full border border-[#00f3ff]/05 spin-ccw pointer-events-none"></div>
+            <canvas id="core-canvas" class="absolute w-full h-full z-10"></canvas>
+
+            <!-- Status overlay -->
+            <div class="absolute z-20 flex flex-col items-center pointer-events-none text-center px-4">
+                <div id="core-txt" class="orb tracking-[.3em] text-[#00f3ff]/40 text-xs mb-1">OFFLINE</div>
+                <div id="wake-txt" class="mono text-[10px] text-[#00f3ff]/30 tracking-widest">SAY "HEY JARVIS" TO ACTIVATE</div>
+                <div id="transcript-preview" class="mono text-[11px] text-[#00f3ff]/50 mt-2 italic min-h-4"></div>
+            </div>
+        </div>
+
+        <!-- Chat log (scrollable) -->
+        <div class="gp flex flex-col flex-shrink-0 overflow-hidden" style="height:38%">
+            <div class="border-b border-[#00f3ff]/15 px-4 py-2 flex justify-between items-center flex-shrink-0">
+                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
+                    <i class="fas fa-comments"></i> COMM LOG
+                </h2>
+                <button onclick="clearChat()" class="text-[#00f3ff]/30 hover:text-[#ff003c] mono text-[10px]" title="Clear"><i class="fas fa-trash-alt"></i></button>
+            </div>
+            <div id="chat-log" class="flex-1 overflow-y-auto px-4 py-2 space-y-2 mono text-[11px]">
+                <div class="chat-sys px-2 py-1">System initializing...</div>
+            </div>
+        </div>
+
+        <!-- Voice + Input bar -->
+        <div class="gp px-4 py-3 flex-shrink-0 relative">
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2/5 h-[1px] bg-[#00f3ff] shadow-[0_0_8px_#00f3ff]"></div>
             <div class="flex items-center gap-4">
-                <!-- Mic button — always visible, shows state -->
-                <button id="btn-voice-link" onclick="toggleManualListen()"
-                    class="relative flex-shrink-0 w-16 h-16 rounded-full bg-[#002233] border-2 border-[#00f3ff]/30
-                           flex items-center justify-center text-2xl text-[#00f3ff]/50
-                           hover:text-[#00f3ff] hover:border-[#00f3ff] transition-all">
+                <!-- Mic -->
+                <button id="mic-btn" onclick="toggleListen()"
+                    class="w-14 h-14 flex-shrink-0 rounded-full bg-[#002233] border-2 border-[#00f3ff]/25
+                           flex items-center justify-center text-xl text-[#00f3ff]/40
+                           hover:border-[#00f3ff]/60 hover:text-[#00f3ff]/70 transition-all">
                     <i id="mic-icon" class="fas fa-microphone"></i>
                 </button>
-
-                <div class="flex-1 flex flex-col justify-center h-16">
-                    <div id="transcript-preview" class="font-mono-tech text-[10px] text-[#00f3ff]/40 mb-1 h-4 truncate italic"></div>
-                    <form id="chat-form" onsubmit="handleTextSubmit(event)" class="w-full relative">
-                        <input type="text" id="manual-input"
-                            placeholder="Type or say 'Hey Jarvis...'..."
-                            class="w-full bg-transparent border-none text-[#00f3ff] font-orbitron text-lg tracking-wide
-                                   placeholder-[#00f3ff]/30 focus:outline-none">
-                        <button type="submit" class="absolute right-0 top-1/2 -translate-y-1/2 text-[#00f3ff]/50 hover:text-[#00f3ff]">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
-                    </form>
-                </div>
+                <!-- Input -->
+                <form id="chat-form" onsubmit="submitChat(event)" class="flex-1 relative">
+                    <input id="chat-input" type="text"
+                        placeholder='Ask JARVIS... or say "spawn agent to monitor battery"'
+                        class="w-full bg-transparent text-[#00f3ff] orb text-sm tracking-wide placeholder-[#00f3ff]/25 focus:outline-none">
+                    <button type="submit" class="absolute right-0 top-1/2 -translate-y-1/2 text-[#00f3ff]/40 hover:text-[#00f3ff]">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- RIGHT: Hardware + Terminal -->
-    <div class="col-span-3 flex flex-col gap-4 z-20">
+    <!-- ── RIGHT: Hardware + Logs ───────────────────────────────────────── -->
+    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
 
-        <!-- Hardware Telemetry -->
-        <div class="glass-panel p-4 flex flex-col h-1/3">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/20 pb-2 mb-3">
-                <h2 class="font-orbitron text-sm tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-server"></i> LOCAL HARDWARE
+        <!-- Hardware telemetry -->
+        <div class="gp p-4 flex-shrink-0">
+            <div class="flex justify-between items-center border-b border-[#00f3ff]/15 pb-2 mb-3">
+                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
+                    <i class="fas fa-microchip"></i> HARDWARE
                 </h2>
-                <span id="overflow-badge" class="text-[10px] font-mono-tech hidden px-1 rounded bg-[#ff003c]/20 text-[#ff003c]">RAM GUARD</span>
-            </div>
-            <div class="flex-1 flex flex-col justify-around font-mono-tech text-xs">
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/70 mb-1">
-                        <span>CPU LOAD</span><span id="stat-cpu" class="text-gray-500">--%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-[#002233] rounded overflow-hidden">
-                        <div id="bar-cpu" class="h-full bg-gray-500 w-[0%] transition-all duration-500"></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/70 mb-1">
-                        <span>RAM ALLOC</span><span id="stat-mem" class="text-gray-500">--%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-[#002233] rounded overflow-hidden">
-                        <div id="bar-mem" class="h-full bg-gray-500 w-[0%] transition-all duration-500"></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex justify-between text-[#00f3ff]/70 mb-1">
-                        <span>GPU / INFERENCE</span><span id="stat-gpu" class="text-gray-500">--%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-[#002233] rounded overflow-hidden">
-                        <div id="bar-gpu" class="h-full bg-gray-500 w-[0%] transition-all duration-500"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Terminal Logs -->
-        <div class="glass-panel p-4 flex flex-col flex-1 overflow-hidden">
-            <div class="flex justify-between items-center border-b border-[#00f3ff]/20 pb-2 mb-3">
-                <h2 class="font-orbitron text-sm tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
-                    <i class="fas fa-terminal"></i> SYSTEM LOGS
-                </h2>
-                <button onclick="runDeviceScan()" title="Full device scan"
-                    class="text-xs text-[#00f3ff]/40 hover:text-[#00f3ff] font-mono-tech tracking-widest">
-                    <i class="fas fa-radar"></i> SCAN
+                <button onclick="runDeviceScan()" class="mono text-[9px] text-[#00f3ff]/40 hover:text-[#00f3ff]" title="Full scan">
+                    <i class="fas fa-search"></i> SCAN
                 </button>
             </div>
-            <div id="terminal-logs" class="flex-1 overflow-y-auto font-mono-tech text-[10px] space-y-1 text-[#00f3ff]/70">
-                <div>> Initializing client interface...</div>
-                <div>> Binding to LOCALHOST:8000...</div>
+            <div class="space-y-3 mono text-[10px]">
+                <!-- CPU -->
+                <div>
+                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
+                        <span>CPU</span><span id="hw-cpu" class="text-[#00f3ff]/40">—</span>
+                    </div>
+                    <div class="hud-bar"><div id="bar-cpu" class="hud-fill bg-[#00f3ff]" style="width:0%"></div></div>
+                </div>
+                <!-- RAM -->
+                <div>
+                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
+                        <span>RAM</span><span id="hw-ram" class="text-[#00f3ff]/40">—</span>
+                    </div>
+                    <div class="hud-bar"><div id="bar-ram" class="hud-fill bg-[#00f3ff]" style="width:0%"></div></div>
+                </div>
+                <!-- Battery -->
+                <div>
+                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
+                        <span>BATTERY</span><span id="hw-bat" class="text-[#00f3ff]/40">—</span>
+                    </div>
+                    <div class="hud-bar"><div id="bar-bat" class="hud-fill bg-[#00ff88]" style="width:0%"></div></div>
+                </div>
+                <!-- GPU / Inference -->
+                <div>
+                    <div class="flex justify-between text-[#00f3ff]/60 mb-1">
+                        <span>INFERENCE</span><span id="hw-gpu" class="text-[#00f3ff]/40">—</span>
+                    </div>
+                    <div class="hud-bar"><div id="bar-gpu" class="hud-fill bg-[#f59e0b]" style="width:0%"></div></div>
+                </div>
+            </div>
+            <!-- Device info strip -->
+            <div id="device-strip" class="mt-3 pt-2 border-t border-[#00f3ff]/10 mono text-[9px] text-[#00f3ff]/35 space-y-0.5">
+                <div>—</div>
             </div>
         </div>
-    </div>
+
+        <!-- RAM guard badge -->
+        <div id="ram-guard" class="hidden gp px-3 py-2 border-[#ff003c]/40 text-center">
+            <div class="mono text-[10px] text-[#ff003c]"><i class="fas fa-exclamation-triangle"></i> RAM GUARD ACTIVE — CONTEXT TRIMMED</div>
+        </div>
+
+        <!-- System logs -->
+        <div class="gp p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div class="flex justify-between items-center border-b border-[#00f3ff]/15 pb-2 mb-2 flex-shrink-0">
+                <h2 class="orb text-xs tracking-widest font-bold flex items-center gap-2 text-[#00f3ff]">
+                    <i class="fas fa-terminal"></i> SYS LOGS
+                </h2>
+            </div>
+            <div id="sys-log" class="flex-1 overflow-y-auto mono text-[10px] space-y-0.5 text-[#00f3ff]/55 pr-1"></div>
+        </div>
+    </aside>
 </main>
 
-<!-- Floating AI response overlay -->
-<div class="fixed bottom-4 left-8 w-[28%] max-h-[35vh] overflow-y-auto pointer-events-none z-40 flex flex-col justify-end">
-    <div id="comm-log" class="flex flex-col gap-2 font-mono-tech text-xs"></div>
-</div>
-
-<!-- ── SCRIPTS ──────────────────────────────────────────────────────────────── -->
+<!-- ═══ SCRIPTS ═══════════════════════════════════════════════════════════════ -->
 <script>
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 // CONFIG
-// ============================================================
-const CFG = {
-    baseUrl      : 'http://localhost:8000',
-    pollMs       : 4000,
-    ramGuard     : 85,     // % RAM — trim context above this
-    wakeWords    : ['hey jarvis', 'jarvis', 'hey j.a.r.v.i.s'],
-    voiceEnabled : true,
-    ttsEnabled   : true,
-    ttsRate      : 0.95,
-    ttsPitch     : 0.85,
-    ttsVolume    : 1.0,
+// ────────────────────────────────────────────────────────────────────
+const BASE   = 'http://localhost:8000';
+const POLL   = 4000;
+const RAM_GUARD = 85;
+const WAKE_WORDS = ['hey jarvis','jarvis','hey j.a.r.v.i.s.'];
+
+const TTS = {
+    enabled : true,
+    rate    : 0.92,
+    pitch   : 0.8,
+    volume  : 1.0,
 };
 
-// ── State ──────────────────────────────────────────────────
-let isBackendOnline  = false;
-let conversationHistory = [];
-let currentModel     = '';
-let listeningMode    = 'wakeword';   // 'wakeword' | 'command' | 'off'
-let recognition      = null;
-let synth            = window.speechSynthesis;
-let isSpeaking       = false;
-let wsSavedCount     = 0;
+// ── State ────────────────────────────────────────────────────────────
+let online   = false;
+let history  = [];  // conversation history
+let model    = '';
+let vmMode   = 'wake';  // 'wake' | 'cmd' | 'off'
+let recognition = null;
+let speaking = false;
+let rewriteCount = 0;
 
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 // CLOCK
-// ============================================================
-function updateClock() {
+// ────────────────────────────────────────────────────────────────────
+function tick() {
     const n = new Date();
-    document.getElementById('clock-time').innerText = n.toLocaleTimeString('en-US', {hour12:false});
-    document.getElementById('clock-date').innerText = n.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
+    document.getElementById('clk').innerText  = n.toLocaleTimeString('en-US',{hour12:false});
+    document.getElementById('clkd').innerText = n.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
 }
-setInterval(updateClock, 1000); updateClock();
+setInterval(tick, 1000); tick();
 
-// ============================================================
-// TERMINAL LOG
-// ============================================================
-function addTerminalLog(msg, isError=false) {
-    const el = document.getElementById('terminal-logs');
+// ────────────────────────────────────────────────────────────────────
+// LOGS
+// ────────────────────────────────────────────────────────────────────
+function sysLog(msg, type='') {
+    const el = document.getElementById('sys-log');
     const d  = document.createElement('div');
-    d.className = isError ? 'text-[#ff003c]' : '';
+    d.className = type === 'err' ? 'text-[#ff003c]' : type === 'ok' ? 'text-[#00ff88]' : type === 'warn' ? 'text-[#f59e0b]' : '';
     d.innerText = `> ${msg}`;
     el.appendChild(d);
     el.scrollTop = el.scrollHeight;
-    // Keep last 100 lines
-    while (el.children.length > 100) el.removeChild(el.firstChild);
+    while (el.children.length > 120) el.removeChild(el.firstChild);
 }
 
-// ============================================================
-// COMM LOG (floating overlay)
-// ============================================================
-function addCommLog(who, msg, type='sys') {
-    const el  = document.getElementById('comm-log');
+function chatMsg(who, text, type='sys') {
+    const el  = document.getElementById('chat-log');
     const div = document.createElement('div');
-    div.className = `comm-msg-${type} glass-panel p-2 rounded`;
-    div.innerHTML = `<span class="opacity-60">[${who}]</span> ${escHtml(msg.substring(0,300))}${msg.length>300?'…':''}`;
+    div.className = `chat-${type} px-2 py-1 rounded-sm`;
+    div.innerHTML = `<span class="opacity-50 text-[9px] mr-1">[${who}]</span>${escHtml(text.substring(0,800))}${text.length>800?'…':''}`;
     el.appendChild(div);
     el.scrollTop = el.scrollHeight;
-    while (el.children.length > 6) el.removeChild(el.firstChild);
-
-    // Mirror to history panel
-    const hist = document.getElementById('comm-history');
-    const row  = document.createElement('div');
-    row.className = type === 'user' ? 'text-[#00f3ff]' : type === 'ai' ? 'text-[#00f3ff]/70' : 'text-[#00f3ff]/40';
-    row.innerHTML = `<span class="opacity-50">[${who}]</span> ${escHtml(msg.substring(0,200))}`;
-    hist.appendChild(row);
-    hist.scrollTop = hist.scrollHeight;
+    while (el.children.length > 80) el.removeChild(el.firstChild);
 }
 
 function escHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
-function clearHistory() {
-    conversationHistory = [];
-    document.getElementById('comm-history').innerHTML = '<div class="text-gray-500 italic">History cleared.</div>';
-    document.getElementById('comm-log').innerHTML = '';
-    addTerminalLog('Conversation history cleared.');
+function clearChat() {
+    history = [];
+    document.getElementById('chat-log').innerHTML = '<div class="chat-sys px-2 py-1">History cleared.</div>';
 }
 
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 // BACKEND HEALTH
-// ============================================================
-async function checkBackendHealth() {
+// ────────────────────────────────────────────────────────────────────
+async function poll() {
     try {
         const ctl = new AbortController();
-        const tid = setTimeout(() => ctl.abort(), 3000);
-        const res = await fetch(`${CFG.baseUrl}/health`, {signal: ctl.signal});
-        clearTimeout(tid);
-        if (res.ok) {
-            if (!isBackendOnline) {
-                isBackendOnline = true;
-                addTerminalLog('CONNECTION ESTABLISHED: Local Agent Online.');
-                updateServerUI(true);
-                loadModels();
-                fetchWorkspaceData();
-            }
-            fetchHardwareStats();
-        } else throw new Error('bad status');
+        setTimeout(() => ctl.abort(), 3000);
+        const d = await (await fetch(`${BASE}/health`, {signal: ctl.signal})).json();
+        if (!online) {
+            online = true;
+            sysLog('CONNECTION ESTABLISHED', 'ok');
+            updateOnlineUI();
+            loadModels();
+            fetchHW();
+            setTimeout(() => runDeviceScan(), 1500);
+        } else {
+            fetchHW();
+        }
+        document.getElementById('hdr-agent-count').innerText = d.agents ?? 0;
+        refreshAgents();
     } catch {
-        if (isBackendOnline) {
-            isBackendOnline = false;
-            updateServerUI(false);
+        if (online) {
+            online = false;
+            updateOfflineUI();
+            sysLog('BACKEND DISCONNECTED', 'err');
         }
     }
 }
 
-function updateServerUI(online) {
-    const ind  = document.getElementById('server-status-indicator');
-    const core = document.getElementById('core-status-text');
-    if (online) {
-        ind.innerHTML  = `<span class="text-[#00f3ff]">BACKEND: ONLINE</span> <span class="w-1 h-1 rounded-full bg-[#00f3ff] shadow-[0_0_5px_#00f3ff] inline-block"></span>`;
-        core.innerText = 'STANDBY MODE';
-        core.className = 'font-orbitron tracking-[0.3em] text-[#00f3ff]/50 text-xs mb-2';
-    } else {
-        ind.innerHTML  = `<span class="text-[#ff003c]">BACKEND: OFFLINE</span> <span class="w-1 h-1 rounded-full bg-[#ff003c] animate-ping inline-block"></span>`;
-        core.innerText = 'AWAITING CONNECTION';
-        core.className = 'font-orbitron tracking-[0.3em] text-[#ff003c] text-xs mb-2 animate-pulse';
-    }
+function updateOnlineUI() {
+    document.getElementById('srv-ind').innerHTML =
+        `<span class="text-[#00f3ff]">BACKEND: ONLINE</span> <span class="w-1.5 h-1.5 rounded-full bg-[#00f3ff] shadow-[0_0_5px_#00f3ff] inline-block"></span>`;
+    setCoreText('STANDBY MODE', false);
 }
 
-// ============================================================
+function updateOfflineUI() {
+    document.getElementById('srv-ind').innerHTML =
+        `<span class="text-[#ff003c]">BACKEND: OFFLINE</span> <span class="w-1.5 h-1.5 rounded-full bg-[#ff003c] animate-ping inline-block"></span>`;
+    setCoreText('AWAITING CONNECTION', true);
+}
+
+function setCoreText(t, red=false) {
+    const el = document.getElementById('core-txt');
+    el.innerText = t;
+    el.className = `orb tracking-[.3em] text-xs mb-1 ${red ? 'text-[#ff003c] animate-pulse' : 'text-[#00f3ff]/40'}`;
+}
+
+// ────────────────────────────────────────────────────────────────────
 // HARDWARE STATS
-// ============================================================
-async function fetchHardwareStats() {
+// ────────────────────────────────────────────────────────────────────
+async function fetchHW() {
     try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/system`)).json();
+        const d = await (await fetch(`${BASE}/api/system`)).json();
         setBar('cpu', d.cpu ?? 0);
-        setBar('mem', d.ram ?? 0);
-        setBar('gpu', d.gpu ?? 0);
-        // RAM overflow guard
-        if ((d.ram ?? 0) > CFG.ramGuard) {
-            document.getElementById('overflow-badge').classList.remove('hidden');
-            if (conversationHistory.length > 4) {
-                conversationHistory = conversationHistory.slice(-4);
-                addTerminalLog(`RAM GUARD: context trimmed (${d.ram}%)`, true);
+        setBar('ram', d.ram ?? 0);
+        document.getElementById('mini-cpu').innerText = `${d.cpu ?? 0}%`;
+        document.getElementById('mini-ram').innerText = `${d.ram ?? 0}%`;
+        if ((d.ram ?? 0) > RAM_GUARD) {
+            document.getElementById('ram-guard').classList.remove('hidden');
+            if (history.length > 4) {
+                history = history.slice(-4);
+                sysLog(`RAM guard: context trimmed (${d.ram}%)`, 'warn');
             }
         } else {
-            document.getElementById('overflow-badge').classList.add('hidden');
+            document.getElementById('ram-guard').classList.add('hidden');
         }
     } catch {}
+}
+
+async function runDeviceScan() {
+    sysLog('Running device scan...');
+    try {
+        const d = await (await fetch(`${BASE}/api/device`)).json();
+        sysLog(`Uptime: ${d.uptime}`);
+        if (d.cpu)    sysLog(`CPU: ${d.cpu.cores} cores ${d.cpu.load_pct}%`);
+        if (d.memory) sysLog(`RAM: ${d.memory.total_mb}MB / ${d.memory.used_pct}%`);
+        if (d.storage) sysLog(`Storage: ${d.storage.used}/${d.storage.size} (${d.storage.use_pct})`);
+        if (d.battery) {
+            const cap = d.battery.capacity ?? d.battery.percentage ?? '?';
+            document.getElementById('hw-bat').innerText = `${cap}%`;
+            setBarEl(document.getElementById('bar-bat'), parseInt(cap) || 0);
+            sysLog(`Battery: ${cap}% ${d.battery.status ?? ''}`, 'ok');
+        }
+        if (d.temperatures_c) {
+            const top = Object.entries(d.temperatures_c).slice(0,3).map(([k,v])=>`${k}:${v}°C`).join(' ');
+            sysLog(`Temps: ${top}`);
+        }
+        if (d.android) {
+            const info = `${d.android.brand ?? ''} ${d.android.model ?? ''} Android ${d.android.release ?? ''}`;
+            sysLog(`Device: ${info.trim()}`, 'ok');
+            document.getElementById('device-strip').innerHTML =
+                `<div>${info.trim()}</div>` +
+                (d.storage ? `<div>Storage: ${d.storage.used}/${d.storage.size}</div>` : '') +
+                (d.battery ? `<div>Battery: ${d.battery.capacity ?? '?'}% · ${d.battery.status ?? ''}</div>` : '');
+        }
+        if (d.network) {
+            const nets = Object.entries(d.network).map(([k,v])=>`${k}↓${v.rx_mb}MB↑${v.tx_mb}MB`).join(' ');
+            sysLog(`Net: ${nets}`);
+        }
+        sysLog('Scan complete.', 'ok');
+    } catch (e) { sysLog(`Scan error: ${e.message}`, 'err'); }
 }
 
 function setBar(key, pct) {
-    const clamped = Math.min(pct, 100);
-    const el = document.getElementById(`stat-${key}`);
+    const capped = Math.min(pct, 100);
+    const val = document.getElementById(`hw-${key}`);
     const bar = document.getElementById(`bar-${key}`);
-    if (!el) return;
-    el.innerText = `${clamped}%`;
-    bar.style.width = `${clamped}%`;
-    const color = clamped > 85 ? '#ff003c' : clamped > 60 ? '#f59e0b' : '#00f3ff';
+    if (!val) return;
+    val.innerText = `${capped}%`;
+    bar.style.width = `${capped}%`;
+    const color = capped > 85 ? '#ff003c' : capped > 60 ? '#f59e0b' : '#00f3ff';
     bar.style.backgroundColor = color;
-    el.style.color = color;
+    val.style.color = color;
 }
 
-// ============================================================
-// WORKSPACE
-// ============================================================
-async function fetchWorkspaceData() {
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/workspace`)).json();
-        const n = d.count ?? 0;
-        document.getElementById('ws-file-count').innerText = `${n} FILES`;
-        document.getElementById('ws-saved-count').innerText = n;
-        document.getElementById('ws-progress').style.width = `${Math.min(n, 100)}%`;
-        if (d.files && d.files.length) {
-            document.getElementById('ws-last-file').innerText = d.files[d.files.length-1].name;
-        }
-    } catch {}
+function setBarEl(bar, pct) {
+    bar.style.width = `${Math.min(pct,100)}%`;
 }
 
-async function autoSaveCode(code, filename) {
-    try {
-        const r = await fetch(`${CFG.baseUrl}/api/code`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({filename, code, execute: false})
-        });
-        const d = await r.json();
-        addTerminalLog(`Code saved: ${d.saved}`);
-        wsSavedCount++;
-        document.getElementById('ws-saved-count').innerText = wsSavedCount;
-        document.getElementById('ws-last-file').innerText = d.saved;
-        document.getElementById('ai-status-badge').innerText = 'SAVED';
-        setTimeout(() => document.getElementById('ai-status-badge').innerText = 'IDLE', 2000);
-        fetchWorkspaceData();
-    } catch(e) {
-        addTerminalLog(`Code save error: ${e.message}`, true);
-    }
-}
-
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 // MODELS
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 async function loadModels() {
     try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/models`)).json();
-        const sel = document.getElementById('model-select');
-        if (d.models && d.models.length) {
+        const d = await (await fetch(`${BASE}/api/models`)).json();
+        const sel = document.getElementById('model-sel');
+        if (d.models?.length) {
             sel.innerHTML = d.models.map(m => `<option value="${m}">${m}</option>`).join('');
-            currentModel = d.models[0];
-            addTerminalLog(`Models loaded: ${d.models.join(', ')}`);
+            model = d.models[0];
+            sysLog(`Models: ${d.models.join(', ')}`, 'ok');
         } else {
-            sel.innerHTML = '<option value="llama3">llama3 (default)</option>';
-            currentModel = 'llama3';
-            addTerminalLog('No models found — defaulting to llama3', true);
+            sel.innerHTML = '<option value="llama3">llama3</option>';
+            model = 'llama3';
+            sysLog('No models found — using llama3', 'warn');
         }
     } catch {
-        document.getElementById('model-select').innerHTML = '<option value="llama3">llama3</option>';
-        currentModel = 'llama3';
+        document.getElementById('model-sel').innerHTML = '<option value="llama3">llama3</option>';
+        model = 'llama3';
     }
 }
 
-function onModelChange(val) {
-    currentModel = val;
-    addTerminalLog(`Model switched to: ${val}`);
-}
+function onModelChange(v) { model = v; sysLog(`Model → ${v}`); }
 
-// ============================================================
-// CHAT — core send
-// ============================================================
-async function sendMessage(message) {
-    if (!message.trim()) return;
-    document.getElementById('manual-input').value = '';
+// ────────────────────────────────────────────────────────────────────
+// CHAT
+// ────────────────────────────────────────────────────────────────────
+async function send(msg) {
+    if (!msg.trim()) return;
+    document.getElementById('chat-input').value = '';
     document.getElementById('transcript-preview').innerText = '';
 
-    addCommLog('YOU', message, 'user');
-    addTerminalLog(`Processing: ${message.substring(0,50)}...`);
-    document.getElementById('ai-status-badge').innerText = 'THINKING';
-    document.getElementById('core-status-text').innerText = 'PROCESSING';
+    chatMsg('YOU', msg, 'user');
+    sysLog(`TX: ${msg.substring(0,60)}...`);
+    setCoreText('PROCESSING', false);
 
-    conversationHistory.push({role:'user', content: message});
+    history.push({role:'user', content: msg});
 
     try {
-        const res = await fetch(`${CFG.baseUrl}/api/chat`, {
+        const res = await fetch(`${BASE}/api/chat`, {
             method : 'POST',
             headers: {'Content-Type':'application/json'},
             body   : JSON.stringify({
-                message,
-                model  : currentModel || 'llama3',
-                history: conversationHistory.slice(-10)
+                message : msg,
+                model   : model || 'llama3',
+                history : history.slice(-10)
             })
         });
-
         const data = await res.json();
         if (data.error) throw new Error(data.response);
 
         const reply = data.response || '';
-        conversationHistory.push({role:'assistant', content: reply});
+        history.push({role:'assistant', content: reply});
 
-        addCommLog('J.A.R.V.I.S.', reply, 'ai');
-        document.getElementById('core-status-text').innerText = 'STANDBY MODE';
-        document.getElementById('ai-status-badge').innerText = 'IDLE';
-
-        // Speak the response
-        speakText(reply);
-
-        // Auto-save any code blocks
-        const codeBlocks = [...reply.matchAll(/```(\w*)\n([\s\S]+?)```/g)];
-        for (let i = 0; i < codeBlocks.length; i++) {
-            const lang = codeBlocks[i][1] || 'py';
-            const ext  = lang === 'python' ? 'py' : lang === 'javascript' ? 'js' : lang === 'bash' ? 'sh' : lang || 'py';
-            await autoSaveCode(codeBlocks[i][2], `gen_${Date.now()}_${i}.${ext}`);
+        // Detect special response types
+        if (data.spawned) {
+            chatMsg('AGENT-SPAWNER', reply, 'agent');
+            sysLog(`Agent spawned: ${data.agent_name}`, 'ok');
+            document.getElementById('spawn-indicator').classList.remove('hidden');
+            setTimeout(() => document.getElementById('spawn-indicator').classList.add('hidden'), 3000);
+            refreshAgents();
+        } else if (data.rewritten) {
+            chatMsg('SELF-REWRITER', reply, 'rewrite');
+            rewriteCount++;
+            document.getElementById('hdr-rewrite-count').innerText = rewriteCount;
+            document.getElementById('rewrite-indicator').classList.remove('hidden');
+            setTimeout(() => document.getElementById('rewrite-indicator').classList.add('hidden'), 5000);
+        } else {
+            chatMsg('J.A.R.V.I.S.', reply, 'ai');
         }
 
-    } catch (err) {
-        addCommLog('SYSTEM', `Error: ${err.message}`, 'err');
-        addTerminalLog(`Chat error: ${err.message}`, true);
-        document.getElementById('ai-status-badge').innerText = 'ERROR';
-        document.getElementById('core-status-text').innerText = 'ERROR';
-        speakText('I encountered an error. Please check the system logs.');
-    }
-}
+        setCoreText('STANDBY MODE', false);
+        speak(reply);
 
-function handleTextSubmit(e) {
-    e.preventDefault();
-    const val = document.getElementById('manual-input').value.trim();
-    if (val) sendMessage(val);
-}
-
-// ============================================================
-// TTS — J.A.R.V.I.S. speaks back
-// ============================================================
-function speakText(text) {
-    if (!CFG.ttsEnabled || !synth) return;
-    // Strip markdown for speech
-    const clean = text
-        .replace(/```[\s\S]*?```/g, 'Code block saved to workspace.')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/#+\s/g, '')
-        .replace(/\n+/g, ' ')
-        .trim()
-        .substring(0, 500);  // cap speech length
-
-    synth.cancel();
-    const utt      = new SpeechSynthesisUtterance(clean);
-    utt.rate       = CFG.ttsRate;
-    utt.pitch      = CFG.ttsPitch;
-    utt.volume     = CFG.ttsVolume;
-
-    // Pick a deep/robotic voice if available
-    const voices   = synth.getVoices();
-    const preferred = voices.find(v =>
-        v.name.toLowerCase().includes('male') ||
-        v.name.toLowerCase().includes('daniel') ||
-        v.name.toLowerCase().includes('google uk english male') ||
-        v.name.toLowerCase().includes('en-gb')
-    );
-    if (preferred) utt.voice = preferred;
-
-    utt.onstart = () => {
-        isSpeaking = true;
-        setMicState('speaking');
-        document.getElementById('voice-status-indicator').innerText = 'COMM LINK: SPEAKING';
-    };
-    utt.onend = utt.onerror = () => {
-        isSpeaking = false;
-        if (listeningMode === 'wakeword') setMicState('wakeword');
-        else setMicState('idle');
-        document.getElementById('voice-status-indicator').innerText = 'COMM LINK: IDLE';
-        // Resume wake-word listening after speech
-        if (listeningMode === 'wakeword' && recognition) {
-            try { recognition.start(); } catch {}
-        }
-    };
-    synth.speak(utt);
-}
-
-// ============================================================
-// SPEECH RECOGNITION — Wake Word + Command
-// ============================================================
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-function initSpeech() {
-    if (!SpeechRecognition) {
-        addTerminalLog('Web Speech API not available in this browser.', true);
-        document.getElementById('wake-status').innerText = 'VOICE: UNSUPPORTED';
-        return;
-    }
-    recognition = new SpeechRecognition();
-    recognition.continuous     = false;   // single result, then we restart
-    recognition.interimResults = true;
-    recognition.lang           = 'en-US';
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-        addTerminalLog(`Voice: ${listeningMode === 'command' ? 'command' : 'wake-word'} listening...`);
-    };
-
-    recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript   = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const t = event.results[i][0].transcript.toLowerCase().trim();
-            if (event.results[i].isFinal) finalTranscript = t;
-            else interimTranscript = t;
+        // Auto-save code blocks
+        const blocks = [...reply.matchAll(/```(\w*)\n([\s\S]+?)```/g)];
+        for (let i = 0; i < blocks.length; i++) {
+            const ext = ({python:'py',javascript:'js',bash:'sh'})[blocks[i][1]] ?? (blocks[i][1] || 'py');
+            await saveCode(blocks[i][2], `gen_${Date.now()}_${i}.${ext}`);
         }
 
-        // Show interim text
-        document.getElementById('transcript-preview').innerText =
-            interimTranscript || finalTranscript;
-
-        if (!finalTranscript) return;
-
-        if (listeningMode === 'wakeword') {
-            const triggered = CFG.wakeWords.some(w => finalTranscript.includes(w));
-            if (triggered) {
-                activateCommandMode(finalTranscript);
-            }
-        } else if (listeningMode === 'command') {
-            // Strip wake word if user said "hey jarvis do X"
-            let cmd = finalTranscript;
-            CFG.wakeWords.forEach(w => { cmd = cmd.replace(w, '').trim(); });
-            if (cmd) {
-                listeningMode = 'wakeword';
-                setMicState('wakeword');
-                document.getElementById('wake-status').innerText = "SAY \"HEY JARVIS\" TO ACTIVATE";
-                document.getElementById('voice-status-indicator').innerText = 'COMM LINK: PROCESSING';
-                sendMessage(cmd);
-            }
-        }
-    };
-
-    recognition.onerror = (e) => {
-        if (e.error !== 'no-speech' && e.error !== 'aborted') {
-            addTerminalLog(`Voice error: ${e.error}`, true);
-        }
-    };
-
-    recognition.onend = () => {
-        // Auto-restart in wake-word mode (always listening)
-        if (listeningMode === 'wakeword' && !isSpeaking) {
-            try { recognition.start(); } catch {}
-        } else if (listeningMode === 'command') {
-            // If command mode ended without input, revert
-            setTimeout(() => {
-                if (listeningMode === 'command') {
-                    listeningMode = 'wakeword';
-                    setMicState('wakeword');
-                    document.getElementById('wake-status').innerText = "SAY \"HEY JARVIS\" TO ACTIVATE";
-                    try { recognition.start(); } catch {}
-                }
-            }, 500);
-        }
-    };
-
-    // Start wake-word mode immediately
-    listeningMode = 'wakeword';
-    setMicState('wakeword');
-    try {
-        recognition.start();
-        addTerminalLog('Wake-word listener armed: "Hey Jarvis"');
-        document.getElementById('wake-status').innerText = "SAY \"HEY JARVIS\" TO ACTIVATE";
     } catch(e) {
-        addTerminalLog(`Could not start voice: ${e.message}`, true);
+        chatMsg('SYSTEM', `Error: ${e.message}`, 'err');
+        sysLog(`Error: ${e.message}`, 'err');
+        setCoreText('ERROR', true);
+        speak('I encountered an error. Check the system logs.');
     }
 }
 
-function activateCommandMode(rawTranscript) {
-    listeningMode = 'command';
-    setMicState('listening');
-    document.getElementById('wake-status').innerText = 'LISTENING FOR COMMAND...';
-    document.getElementById('voice-status-indicator').innerText = 'COMM LINK: ACTIVE';
-    addTerminalLog('Wake word detected — command mode active.');
-
-    // Brief audio cue
-    speakBeep();
-
-    // If they said something after the wake word on same utterance, use it
-    let remainder = rawTranscript;
-    CFG.wakeWords.forEach(w => { remainder = remainder.replace(w, '').trim(); });
-    if (remainder.length > 2) {
-        // They already gave the command inline: "hey jarvis what time is it"
-        listeningMode = 'wakeword';
-        setMicState('wakeword');
-        document.getElementById('wake-status').innerText = "SAY \"HEY JARVIS\" TO ACTIVATE";
-        sendMessage(remainder);
-        return;
-    }
-
-    // Otherwise restart recognition in command mode
-    try { recognition.stop(); } catch {}
-    setTimeout(() => {
-        if (!isSpeaking) {
-            try { recognition.start(); } catch {}
-        }
-    }, 300);
-}
-
-function speakBeep() {
+async function saveCode(code, filename) {
     try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        osc.start(); osc.stop(ctx.currentTime + 0.15);
+        const r = await fetch(`${BASE}/api/code`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({filename, code, execute: false})
+        });
+        const d = await r.json();
+        sysLog(`Code saved: ${d.saved}`, 'ok');
     } catch {}
 }
 
-// Manual toggle: click mic button to force command mode
-function toggleManualListen() {
-    if (!recognition) { initSpeech(); return; }
-    if (listeningMode === 'command') {
-        // Cancel
-        listeningMode = 'wakeword';
-        setMicState('wakeword');
-        document.getElementById('wake-status').innerText = "SAY \"HEY JARVIS\" TO ACTIVATE";
-        try { recognition.stop(); } catch {}
-        setTimeout(() => { try { recognition.start(); } catch {} }, 300);
-    } else {
-        activateCommandMode('');
+function submitChat(e) {
+    e.preventDefault();
+    const v = document.getElementById('chat-input').value.trim();
+    if (v) send(v);
+}
+
+// ────────────────────────────────────────────────────────────────────
+// QUICK SPAWN (form)
+// ────────────────────────────────────────────────────────────────────
+function quickSpawn(e) {
+    e.preventDefault();
+    const task = document.getElementById('spawn-input').value.trim();
+    if (!task) return;
+    document.getElementById('spawn-input').value = '';
+    send(`spawn agent to ${task}`);
+}
+
+// ────────────────────────────────────────────────────────────────────
+// AGENT LIST
+// ────────────────────────────────────────────────────────────────────
+async function refreshAgents() {
+    try {
+        const d  = await (await fetch(`${BASE}/api/agents`)).json();
+        const el = document.getElementById('agent-list');
+        const running = d.agents.filter(a => a.status === 'running').length;
+
+        document.getElementById('ac-count').innerText = `${running} ACTIVE`;
+        document.getElementById('hdr-agent-count').innerText = running;
+
+        if (!d.agents.length) {
+            el.innerHTML = `<div class="mono text-[10px] text-[#00ff88]/30 italic text-center mt-4">No sub-agents running.<br>Say "spawn agent to [task]".</div>`;
+            return;
+        }
+
+        el.innerHTML = '';
+        [...d.agents].reverse().forEach(a => {
+            const card = document.createElement('div');
+            card.className = `agent-card ${a.status}`;
+            card.dataset.id = a.id;
+
+            const statusBadge = {
+                running  : '<span class="badge badge-run">RUN</span>',
+                completed: '<span class="badge badge-done">DONE</span>',
+                killed   : '<span class="badge badge-kill">KILL</span>',
+                failed   : '<span class="badge badge-fail">FAIL</span>',
+            }[a.status] ?? `<span class="badge badge-done">${a.status.toUpperCase()}</span>`;
+
+            const uptime = a.uptime < 60 ? `${a.uptime}s` : `${Math.floor(a.uptime/60)}m`;
+            const killBtn = a.status === 'running'
+                ? `<button onclick="killAgent('${a.id}')" title="Kill agent" class="text-[#ff003c]/50 hover:text-[#ff003c] text-xs"><i class="fas fa-skull"></i></button>`
+                : '';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-1">
+                    <div class="mono text-[10px] text-[#00ff88] font-bold truncate flex-1">${escHtml(a.name)}</div>
+                    <div class="flex items-center gap-1 ml-2 flex-shrink-0">${statusBadge} ${killBtn}</div>
+                </div>
+                <div class="mono text-[9px] text-[#00ff88]/50 truncate mb-1">${escHtml(a.task.substring(0,60))}</div>
+                <div class="flex justify-between mono text-[9px] text-[#00ff88]/35">
+                    <span>PID ${a.pid}</span>
+                    <span>${uptime}</span>
+                </div>`;
+            el.appendChild(card);
+        });
+    } catch {}
+}
+
+async function killAgent(id) {
+    sysLog(`Killing agent ${id}...`, 'warn');
+    try {
+        await fetch(`${BASE}/api/agents/${id}/kill`, {method:'POST'});
+        sysLog('Agent killed.', 'ok');
+        refreshAgents();
+    } catch(e) { sysLog(`Kill failed: ${e.message}`, 'err'); }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// TTS
+// ────────────────────────────────────────────────────────────────────
+function speak(text) {
+    if (!TTS.enabled || !speechSynthesis) return;
+    const clean = text
+        .replace(/```[\s\S]*?```/g, 'Code block saved.')
+        .replace(/`[^`]+`/g, s => s.replace(/`/g,''))
+        .replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1')
+        .replace(/#+\s/g,'').replace(/\n+/g,' ')
+        .trim().substring(0,450);
+
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.rate   = TTS.rate; u.pitch = TTS.pitch; u.volume = TTS.volume;
+    const voices = speechSynthesis.getVoices();
+    const v = voices.find(v =>
+        /male|daniel|google uk english male|en-gb/i.test(v.name)
+    );
+    if (v) u.voice = v;
+    u.onstart = () => { speaking = true; setMicState('speak'); };
+    u.onend   = () => {
+        speaking = false;
+        setMicState(vmMode === 'wake' ? 'wake' : 'idle');
+        if (vmMode === 'wake' && recognition) {
+            try { recognition.start(); } catch {}
+        }
+    };
+    u.onerror  = u.onend;
+    speechSynthesis.speak(u);
+}
+
+// ────────────────────────────────────────────────────────────────────
+// SPEECH RECOGNITION
+// ────────────────────────────────────────────────────────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function initVoice() {
+    if (!SR) { sysLog('Web Speech API not available', 'err'); return; }
+    recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = e => {
+        let interim = '', final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript.toLowerCase().trim();
+            if (e.results[i].isFinal) final = t; else interim = t;
+        }
+        document.getElementById('transcript-preview').innerText = interim || final;
+        if (!final) return;
+
+        if (vmMode === 'wake') {
+            if (WAKE_WORDS.some(w => final.includes(w))) activateCmd(final);
+        } else if (vmMode === 'cmd') {
+            let cmd = final;
+            WAKE_WORDS.forEach(w => { cmd = cmd.replace(w,'').trim(); });
+            if (cmd.length > 2) {
+                vmMode = 'wake'; setMicState('wake');
+                document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
+                send(cmd);
+            }
+        }
+    };
+
+    recognition.onerror = e => {
+        if (!['no-speech','aborted'].includes(e.error)) sysLog(`Voice error: ${e.error}`, 'err');
+    };
+
+    recognition.onend = () => {
+        if (vmMode === 'wake' && !speaking) {
+            try { recognition.start(); } catch {}
+        } else if (vmMode === 'cmd') {
+            setTimeout(() => {
+                if (vmMode === 'cmd') {
+                    vmMode = 'wake'; setMicState('wake');
+                    try { recognition.start(); } catch {}
+                }
+            }, 400);
+        }
+    };
+
+    vmMode = 'wake'; setMicState('wake');
+    try {
+        recognition.start();
+        sysLog('Wake-word listener armed: "Hey Jarvis"', 'ok');
+    } catch(e) { sysLog(`Voice init failed: ${e.message}`, 'err'); }
+}
+
+function activateCmd(raw) {
+    vmMode = 'cmd'; setMicState('cmd');
+    document.getElementById('wake-txt').innerText = 'LISTENING — SPEAK YOUR COMMAND...';
+    beep();
+    let tail = raw;
+    WAKE_WORDS.forEach(w => { tail = tail.replace(w,'').trim(); });
+    if (tail.length > 2) {
+        vmMode = 'wake'; setMicState('wake');
+        document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
+        send(tail); return;
     }
+    try { recognition.stop(); } catch {}
+    setTimeout(() => { if (!speaking) try { recognition.start(); } catch {} }, 300);
+}
+
+function toggleListen() {
+    if (!recognition) { initVoice(); return; }
+    if (vmMode === 'cmd') {
+        vmMode = 'wake'; setMicState('wake');
+        document.getElementById('wake-txt').innerText = 'SAY "HEY JARVIS" TO ACTIVATE';
+        try { recognition.stop(); } catch {}
+        setTimeout(() => { try { recognition.start(); } catch {}}, 300);
+    } else { activateCmd(''); }
 }
 
 function setMicState(state) {
-    const btn  = document.getElementById('btn-voice-link');
+    const btn  = document.getElementById('mic-btn');
     const icon = document.getElementById('mic-icon');
-    btn.className = btn.className.replace(/\b(wakeword|listening|speaking)-mode\b/g, '').trim();
-    if (state === 'wakeword') {
-        btn.classList.add('wakeword-mode');
-        icon.className = 'fas fa-microphone';
-    } else if (state === 'listening') {
-        btn.classList.add('listening-mode');
-        icon.className = 'fas fa-microphone-alt';
-    } else if (state === 'speaking') {
-        btn.classList.add('speaking-mode');
-        icon.className = 'fas fa-volume-up';
-    } else {
-        icon.className = 'fas fa-microphone';
-    }
+    btn.className = btn.className.replace(/\b(wake|cmd|speak)\b/g,'').trim();
+    btn.classList.add(state);
+    icon.className = state === 'cmd' ? 'fas fa-microphone-alt' : state === 'speak' ? 'fas fa-volume-up' : 'fas fa-microphone';
 }
 
-// ============================================================
-// CANVAS — animated core
-// ============================================================
-(function setupCanvas() {
-    const canvas = document.getElementById('jarvis-core-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let t = 0;
+function beep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(880, ctx.currentTime);
+        o.frequency.setValueAtTime(1320, ctx.currentTime + 0.06);
+        g.gain.setValueAtTime(0.12, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        o.start(); o.stop(ctx.currentTime + 0.18);
+    } catch {}
+}
 
-    function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+// ────────────────────────────────────────────────────────────────────
+// CANVAS — ANIMATED CORE
+// ────────────────────────────────────────────────────────────────────
+(function() {
+    const c = document.getElementById('core-canvas');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    let t = 0;
+    const resize = () => { c.width = c.offsetWidth; c.height = c.offsetHeight; };
     window.addEventListener('resize', resize); resize();
 
-    function drawFrame() {
-        const W = canvas.width, H = canvas.height;
-        const cx = W/2, cy = H/2;
-        ctx.clearRect(0, 0, W, H);
+    function frame() {
+        const W = c.width, H = c.height, cx = W/2, cy = H/2;
+        ctx.clearRect(0,0,W,H);
+        const R = Math.min(W,H);
+        const active = online;
+        const col = (a) => active ? `rgba(0,243,255,${a})` : `rgba(255,0,60,${a})`;
+        const gcol = (a) => `rgba(0,255,136,${a})`;
 
-        const online = isBackendOnline;
-        const primary = online ? 'rgba(0,243,255,' : 'rgba(255,0,60,';
-
-        // Outer ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, Math.min(W,H)*0.35, 0, Math.PI*2);
-        ctx.strokeStyle = primary + '0.15)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        // Sub-agent orbits (green dots)
+        const agentCards = document.querySelectorAll('.agent-card.running');
+        agentCards.forEach((_, i) => {
+            const angle = (t * 0.03) + (i * Math.PI * 2 / Math.max(agentCards.length,1));
+            const r = R * 0.42;
+            const x = cx + Math.cos(angle) * r;
+            const y = cy + Math.sin(angle) * r;
+            ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
+            ctx.fillStyle = gcol(0.8); ctx.fill();
+            ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
+            ctx.strokeStyle = gcol(0.3); ctx.lineWidth = 1; ctx.stroke();
+        });
 
         // Rotating arcs
-        for (let i = 0; i < 3; i++) {
-            const angle = (t * 0.02 * (i+1)) + (i * Math.PI * 2/3);
+        for (let i = 0; i < 4; i++) {
+            const a = t * 0.018 * (i+1) + i * Math.PI * 0.5;
             ctx.beginPath();
-            ctx.arc(cx, cy, Math.min(W,H)*(0.3 - i*0.04), angle, angle + Math.PI*0.6);
-            ctx.strokeStyle = primary + (0.4 - i*0.1) + ')';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            ctx.arc(cx, cy, R*(0.38 - i*0.04), a, a + Math.PI * (0.5 - i*0.04));
+            ctx.strokeStyle = col(0.35 - i*0.06);
+            ctx.lineWidth = 1.5 - i*0.2; ctx.stroke();
         }
 
-        // Speaking / listening pulse
-        if (isSpeaking || listeningMode === 'command') {
-            const r = Math.min(W,H)*0.15 + Math.sin(t*0.15)*8;
-            const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-            grd.addColorStop(0, primary + '0.3)');
-            grd.addColorStop(1, primary + '0)');
-            ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+        // Pulse ring (speaking or cmd)
+        if (speaking || vmMode === 'cmd') {
+            const rr = R*0.18 + Math.sin(t*0.18)*10;
+            const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,rr);
+            grd.addColorStop(0, vmMode === 'cmd' ? 'rgba(255,0,60,.25)' : 'rgba(0,255,136,.2)');
+            grd.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2);
             ctx.fillStyle = grd; ctx.fill();
         }
 
         // Core dot
-        const coreR = 6 + Math.sin(t*0.05)*2;
-        const coreGrd = ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*3);
-        coreGrd.addColorStop(0, primary + '0.9)');
-        coreGrd.addColorStop(1, primary + '0)');
-        ctx.beginPath(); ctx.arc(cx,cy,coreR,0,Math.PI*2);
-        ctx.fillStyle = coreGrd; ctx.fill();
+        const cr = 7 + Math.sin(t*0.06)*2;
+        const grd = ctx.createRadialGradient(cx,cy,0,cx,cy,cr*3);
+        grd.addColorStop(0, col(0.95));
+        grd.addColorStop(1, col(0));
+        ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2);
+        ctx.fillStyle = grd; ctx.fill();
 
-        t++; requestAnimationFrame(drawFrame);
+        t++; requestAnimationFrame(frame);
     }
-    drawFrame();
+    frame();
 })();
 
-// ============================================================
-// BG PARTICLE CANVAS
-// ============================================================
-(function setupBg() {
-    const c = document.getElementById('bg-canvas');
+// ────────────────────────────────────────────────────────────────────
+// BG PARTICLES
+// ────────────────────────────────────────────────────────────────────
+(function() {
+    const c = document.getElementById('bgc');
     if (!c) return;
     const ctx = c.getContext('2d');
-    const pts = Array.from({length:60}, () => ({
-        x: Math.random()*window.innerWidth,
-        y: Math.random()*window.innerHeight,
-        vx: (Math.random()-0.5)*0.3,
-        vy: (Math.random()-0.5)*0.3,
-        r: Math.random()*1.5
+    const pts = Array.from({length:50}, () => ({
+        x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight,
+        vx: (Math.random()-.5)*.25, vy: (Math.random()-.5)*.25, r: Math.random()*1.4
     }));
-
-    function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
     window.addEventListener('resize', resize); resize();
-
     function draw() {
         ctx.clearRect(0,0,c.width,c.height);
         pts.forEach(p => {
             p.x += p.vx; p.y += p.vy;
-            if (p.x < 0) p.x = c.width;
-            if (p.x > c.width) p.x = 0;
-            if (p.y < 0) p.y = c.height;
-            if (p.y > c.height) p.y = 0;
+            if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
+            if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
             ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-            ctx.fillStyle = 'rgba(0,243,255,0.4)'; ctx.fill();
+            ctx.fillStyle = 'rgba(0,243,255,.35)'; ctx.fill();
         });
         requestAnimationFrame(draw);
     }
     draw();
 })();
 
-// ============================================================
-// DEVICE SCAN
-// ============================================================
-async function runDeviceScan() {
-    addTerminalLog('Running full device scan...');
-    document.getElementById('core-status-text').innerText = 'SCANNING DEVICE';
-    try {
-        const d = await (await fetch(`${CFG.baseUrl}/api/device`)).json();
-        addTerminalLog(`Uptime: ${d.uptime || '?'}`);
-        if (d.cpu)    addTerminalLog(`CPU: ${d.cpu.cores||'?'} cores | ${d.cpu.load_pct}% load`);
-        if (d.memory) addTerminalLog(`RAM: ${d.memory.total_mb}MB total | ${d.memory.used_pct}% used`);
-        if (d.storage) addTerminalLog(`Storage: ${d.storage.used}/${d.storage.size} (${d.storage.use_pct})`);
-        if (d.battery) addTerminalLog(`Battery: ${d.battery.capacity||d.battery.percentage||'?'}% — ${d.battery.status||''}`);
-        if (d.temperatures_c) {
-            const temps = Object.entries(d.temperatures_c).map(([k,v])=>`${k}:${v}°C`).join(' ');
-            addTerminalLog(`Temps: ${temps}`);
-        }
-        if (d.android) addTerminalLog(`Device: ${d.android.brand||''} ${d.android.model||''} Android ${d.android.release||''}`);
-        if (d.top_processes) {
-            addTerminalLog(`Top proc: ${d.top_processes.slice(0,3).map(p=>`${p.cmd}(${p.cpu}%)`).join(', ')}`);
-        }
-        addTerminalLog('Device scan complete.');
-        addCommLog('SCAN', `Full device diagnostic complete. ${d.android ? `Device: ${d.android.brand} ${d.android.model}` : ''} | CPU: ${d.cpu?.load_pct}% | RAM: ${d.memory?.used_pct}%`, 'sys');
-    } catch(e) {
-        addTerminalLog(`Device scan error: ${e.message}`, true);
-    }
-    document.getElementById('core-status-text').innerText = isBackendOnline ? 'STANDBY MODE' : 'AWAITING CONNECTION';
-}
-
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 // BOOT
-// ============================================================
+// ────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
-    addTerminalLog('System boot complete.');
-    addTerminalLog('Initialising voice subsystem...');
-    checkBackendHealth();
-    setInterval(checkBackendHealth, CFG.pollMs);
-    // Auto-run device scan 3s after first connect
-    setTimeout(() => { if (isBackendOnline) runDeviceScan(); }, 3000);
-    // Small delay to let browser settle before asking for mic
-    setTimeout(initSpeech, 1200);
+    sysLog('J.A.R.V.I.S. v2.0 interface loaded.');
+    sysLog('Initializing voice subsystem...');
+    poll(); setInterval(poll, POLL);
+    setInterval(refreshAgents, 5000);
+    setTimeout(initVoice, 1000);
 });
 </script>
 </body>
