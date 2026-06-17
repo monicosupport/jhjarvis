@@ -131,11 +131,18 @@ if [ "$OLLAMA_OK" = "true" ]; then
         if [ "$PULL_EXIT" -ne 0 ]; then
             echo "[!] Pull failed (exit $PULL_EXIT). Trying tinyllama as fallback..."
             ollama pull tinyllama
+            MODEL="tinyllama"
         fi
         echo "[✓] Model ready"
     else
+        # Use the ACTUAL installed model name, not the RAM-guessed one
+        INSTALLED_MODEL=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | head -1)
+        if [ -n "$INSTALLED_MODEL" ]; then
+            MODEL="$INSTALLED_MODEL"
+        fi
         echo "[*] Models available: $MODEL_COUNT"
         ollama list 2>/dev/null | tail -n +2 | awk '{print "    • "$1}'
+        echo "[*] Active model: $MODEL"
     fi
 fi
 
