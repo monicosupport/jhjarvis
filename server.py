@@ -413,20 +413,49 @@ def get_installed_models():
         return [m['name'] for m in result.get('models', [])]
     return []
 
+
+def validate_model(name: str) -> bool:
+    """Quick check: ask Ollama to generate 1 token to confirm model loads without 400."""
+    try:
+        payload = json.dumps({
+            "model": name, "messages": [{"role": "user", "content": "hi"}],
+            "stream": False, "options": {"num_predict": 1}
+        }).encode()
+        req = urllib.request.Request(
+            f"{OLLAMA_BASE}/api/chat", data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
 def get_best_model(requested=None):
     """Return (model_name, None) if ready, or (None, pulling_target) if not."""
     models = get_installed_models()
     if models:
-        # Always prefer the custom uncensored 'jarvis' model if it exists
+        # Prefer jarvis — but only if it actually works (no 400)
         for m in models:
-            if m.lower() == 'jarvis:latest' or m.lower() == 'jarvis':
-                return m, None
-        if requested:
+            if m.lower() in ('jarvis:latest', 'jarvis'):
+                if validate_model(m):
+                    return m, None
+                else:
+                    # Jarvis is broken — remove it so start.sh recreates it next boot
+                    try:
+                        subprocess.run(['ollama', 'rm', 'jarvis'],
+                                       capture_output=True, text=True, timeout=10)
+                    except Exception:
+                        pass
+                    break
+        if requested and requested not in ('jarvis', 'jarvis:latest', 'auto', ''):
             base = requested.split(':')[0].lower()
             for m in models:
                 if base in m.lower():
                     return m, None
-        # Requested model not found but we DO have something installed — use it
+        # Fallback: first non-jarvis installed model
+        for m in models:
+            if 'jarvis' not in m.lower():
+                return m, None
         return models[0], None
     # Nothing installed at all
     target = _device.get('recommended_model', 'dolphin-phi:2.7b')
@@ -699,6 +728,32 @@ def chat():
                                 target=save_memory, args=(_combined, _summary), daemon=True
                             ).start()
                         yield f"data: {json.dumps({'done': True, 'model': _model, 'memory_count': len(_combined) + 2})}\n\n"
+        except urllib.error.HTTPError as he:
+            if he.code in (400, 404):
+                fallback = next((m for m in get_installed_models() if 'jarvis' not in m.lower()), None)
+                msg = (f'\u26a0\ufe0f Model `{_model}` rejected (HTTP {he.code}). '
+                       + (f'Retrying with `{fallback}`\u2026' if fallback else
+                          'No fallback model \u2014 run `bash start.sh` to rebuild jarvis.'))
+                yield f"data: {json.dumps({'token': msg})}\n\n"
+                if fallback:
+                    try:
+                        p2 = json.dumps({'model': fallback, 'messages': messages, 'stream': True,
+                                         'options': {'num_ctx': num_ctx, 'temperature': 0.7, 'top_p': 0.9}}).encode()
+                        r2 = urllib.request.Request(f'{OLLAMA_BASE}/api/chat', data=p2,
+                                                    headers={'Content-Type': 'application/json'})
+                        with urllib.request.urlopen(r2, timeout=180) as resp2:
+                            for raw2 in resp2:
+                                raw2 = raw2.strip()
+                                if not raw2: continue
+                                try: c2 = json.loads(raw2)
+                                except Exception: continue
+                                t2 = c2.get('message', {}).get('content', '')
+                                if t2: yield f"data: {json.dumps({'token': t2})}\n\n"
+                                if c2.get('done'): yield f"data: {json.dumps({'done': True, 'model': fallback})}\n\n"
+                    except Exception as e2:
+                        yield f"data: {json.dumps({'error': True, 'response': f'Fallback also failed: {e2}'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': True, 'response': f'[HTTP {he.code}] {he.reason}'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': True, 'response': f'[OLLAMA ERROR] {str(e)}'})}\n\n"
 
