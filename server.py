@@ -19,6 +19,27 @@ for d in [WORKSPACE, AGENTS_DIR, BACKUP_DIR]:
 
 SELF_PATH    = os.path.abspath(__file__)
 HISTORY_FILE = os.path.join(WORKSPACE, "memory.json")
+DEVICE_CFG   = os.path.join(os.path.dirname(__file__), "device_config.json")
+
+# ── Load device profile (written by start.sh) ─────────────────────────────────
+def load_device_cfg():
+    """Read hardware profile written by start.sh. Fallback to safe defaults."""
+    defaults = {"arch": "unknown", "android": "unknown", "ram_mb": 2048,
+                "num_ctx": 1024, "recommended_model": "llama3.2:1b", "ollama_available": True}
+    try:
+        if os.path.exists(DEVICE_CFG):
+            with open(DEVICE_CFG) as f:
+                cfg = json.load(f)
+                defaults.update(cfg)
+    except: pass
+    # Also honour env var set by start.sh
+    env_ctx = os.environ.get('JARVIS_NUM_CTX')
+    if env_ctx:
+        try: defaults['num_ctx'] = int(env_ctx)
+        except: pass
+    return defaults
+
+_device = load_device_cfg()
 PROFILE_FILE = os.path.join(WORKSPACE, "user_profile.json")
 
 # ── Thread lock ────────────────────────────────────────────────────────────────
@@ -272,7 +293,29 @@ def index():
 @app.route('/health')
 def health():
     result, _ = ollama('/api/version', timeout=3)
-    return jsonify({"status": "online", "ollama": result or "starting", "agents": len(sub_agents)})
+    return jsonify({
+        "status"  : "online",
+        "ollama"  : result or "starting",
+        "agents"  : len(sub_agents),
+        "device"  : _device,
+    })
+
+@app.route('/api/compat')
+def compat():
+    """Return device capabilities so the frontend can adapt."""
+    ram   = _device.get('ram_mb', 2048)
+    arch  = _device.get('arch', 'unknown')
+    return jsonify({
+        "arch"             : arch,
+        "android"          : _device.get('android', 'unknown'),
+        "ram_mb"           : ram,
+        "num_ctx"          : _device.get('num_ctx', 1024),
+        "recommended_model": _device.get('recommended_model', 'llama3.2:1b'),
+        "ollama_available" : _device.get('ollama_available', True),
+        "low_ram"          : ram < 3000,
+        "arm32"            : arch == 'armv7l',
+        "offline_mode"     : os.environ.get('JARVIS_NO_OLLAMA') == '1',
+    })
 
 @app.route('/api/models')
 def models():
@@ -374,7 +417,7 @@ def chat():
         "model"   : model,
         "messages": messages,
         "stream"  : False,
-        "options" : {"num_ctx": 4096, "temperature": 0.7, "top_p": 0.9}
+        "options" : {"num_ctx": _device.get('num_ctx', 2048), "temperature": 0.7, "top_p": 0.9}
     }, timeout=180)
 
     if not result:
