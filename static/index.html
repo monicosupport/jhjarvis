@@ -420,7 +420,7 @@
         <button id="mic-btn" class="btn btn-mic flex-shrink-0" onclick="toggleMic()" title="Voice input">
           <i class="fas fa-microphone"></i>
         </button>
-        <button class="btn flex-shrink-0" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);color:#818cf8;padding:0 8px;font-size:.65rem" onclick="speak('J.A.R.V.I.S. voice system online')" title="Test TTS">🔊</button>
+        <button class="btn flex-shrink-0" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);color:#818cf8;padding:0 8px;font-size:.65rem" onclick="_unlockSpeech();speak('J.A.R.V.I.S. voice system online')" title="Test TTS">🔊</button>
         <button class="btn btn-send flex-shrink-0" onclick="send()">
           <i class="fas fa-paper-plane mr-1"></i>SEND
         </button>
@@ -775,7 +775,19 @@ async function checkOllama() {
 setInterval(checkOllama, 8000); checkOllama();
 
 // ── Send message ────────────────────────────────────────────────
+let _speechUnlocked = false;
+function _unlockSpeech() {
+  // Android Chrome blocks async TTS unless speak() was called at least once
+  // inside a user gesture. Call this on every tap of Send or Mic to unlock.
+  if (_speechUnlocked || !synth) return;
+  _speechUnlocked = true;
+  const u = new SpeechSynthesisUtterance('');
+  synth.speak(u);
+  synth.cancel();
+}
+
 async function send() {
+  _unlockSpeech();  // ← unlock TTS on every Send tap (noop after first time)
   const box = $('input-box');
   const msg = box.value.trim();
   if (!msg) return;
@@ -916,6 +928,7 @@ function initVoice() {
 }
 
 function toggleMic() {
+  _unlockSpeech();
   if (!recognition) { sysLog('Voice not initialized','warn'); return; }
   if (micActive) {
     // Stop
