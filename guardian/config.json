@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "name": "Venice",
+      "endpoint": "https://api.venice.ai/api/v1",
+      "model": "llama-3.1-405b",
+      "priority": 1,
+      "enabled": true
+    },
+    {
+      "name": "Together",
+      "endpoint": "https://api.together.xyz/v1",
+      "model": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+      "priority": 2,
+      "enabled": true
+    }
+  ],
+  "guardian": {
+    "self_repair_enabled": true,
+    "max_repair_attempts": 3,
+    "health_check_interval_seconds": 60,
+    "log_level": "INFO"
+  },
+  "sub_agents": {
+    "max_concurrent": 5,
+    "default_timeout_seconds": 120
+  }
+}
