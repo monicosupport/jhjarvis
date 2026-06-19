@@ -40,8 +40,12 @@ cd ~/jarvis && bash start.sh
 
 ## Updating
 
-Pull the latest changes and restart:
+**Quick update (one command):**
+```bash
+cd ~/jarvis && git pull && bash start.sh
+```
 
+Or step by step:
 ```bash
 cd ~/jarvis
 git pull
