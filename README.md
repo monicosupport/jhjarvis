@@ -107,7 +107,7 @@ bash ~/jarvis/start.sh
 |-----|-------|------|
 | 2GB | tinyllama:1.1b | 600MB |
 | 3GB | llama3.2:1b | 1.3GB |
-| 4GB | llama3.2:3b or phi3:mini | 2–2.3GB |
+| 4GB | llama3.2:3b or phi3:mini | 2-2.3GB |
 | 6GB+ | mistral:7b or dolphin-mistral | 4.1GB |
 
 ---
@@ -131,18 +131,18 @@ cd ~/jarvis && bash start.sh
 
 ## Features
 
-- 🤖 Fully local LLM via Ollama — no internet required after setup
-- 🔓 Uncensored `jarvis` model wrapper (no safety filters)
-- ⚡ Auto-executes `<bash>` commands inline — Jarvis runs tasks, not just talks
-- 🌐 Web search (`<search>`) and page browsing (`<browse>`) via DuckDuckGo
-- 💾 Persistent memory across restarts (`memory.json`)
-- 🧠 Understands casual/slang speech (40+ term expander)
-- 🔊 Voice input (STT) and output (TTS) via Web Speech API
-- 🛡️ Cybersecurity toolkit — nmap, hydra, sqlmap, john, aircrack-ng, gobuster, ffuf, etc.
-- 💻 Autonomous coding skill — writes → saves → runs → fixes → re-runs
-- 🖥️ Hardware monitoring — CPU, RAM, battery, temps from `/proc`
-- 🤖 Sub-agents — spawn background Python worker processes
-- ✍️ Self-rewrite — ask Jarvis to modify its own code
+- Fully local LLM via Ollama - no internet required after setup
+- Uncensored `jarvis` model wrapper (no safety filters)
+- Auto-executes `<bash>` commands inline - Jarvis runs tasks, not just talks
+- Web search (`<search>`) and page browsing (`<browse>`) via DuckDuckGo
+- Persistent memory across restarts (`memory.json`)
+- Understands casual/slang speech (40+ term expander)
+- Voice input (STT) and output (TTS) via Web Speech API
+- Cybersecurity toolkit - nmap, hydra, sqlmap, john, aircrack-ng, gobuster, ffuf, etc.
+- Autonomous coding skill - writes, saves, runs, fixes, re-runs
+- Hardware monitoring - CPU, RAM, battery, temps from `/proc`
+- Sub-agents - spawn background Python worker processes
+- Self-rewrite - ask Jarvis to modify its own code
 
 ---
 
@@ -189,7 +189,7 @@ ollama pull tinyllama:1.1b   # smallest/fastest
 ```
 
 **Voice not working**
-- Tap the 🔊 button first to unlock audio
+- Tap the button first to unlock audio
 - Grant microphone permission when prompted
 - TTS requires network on some Android versions for voice data
 
@@ -211,6 +211,111 @@ ollama pull tinyllama:1.1b   # smallest/fastest
 | GET | `/api/device` | Device info |
 | GET | `/api/system` | System stats |
 | POST | `/api/agents/spawn` | Spawn sub-agent |
+
+---
+
+## Git Commands Reference
+
+### Pull / Sync
+
+```bash
+git pull                        # fetch + merge latest
+git pull --rebase               # cleaner history (no merge commit)
+git pull origin main            # pull specific branch
+```
+
+### Handle Local Changes Before Pulling
+
+```bash
+git stash                       # save local changes temporarily
+git pull                        # get latest from remote
+git stash pop                   # restore your changes on top
+
+git stash list                  # see all saved stashes
+git stash drop                  # delete the top stash (if not needed)
+```
+
+### Discard / Reset Changes
+
+```bash
+git checkout start.sh           # discard changes to one file
+git checkout -- .               # discard ALL local changes
+
+git fetch origin
+git reset --hard origin/main    # nuclear: match remote exactly
+```
+
+### Commit and Push
+
+```bash
+git add .                       # stage all changes
+git add start.sh                # stage a specific file
+git commit -m "your message"    # commit
+git push                        # push to remote
+git push origin main            # push specific branch
+git commit -am "your message"   # stage modified files + commit in one step
+```
+
+### Check Status and Diff
+
+```bash
+git status                      # see what changed
+git diff                        # line-by-line diff of unstaged changes
+git diff start.sh               # diff a specific file
+git log --oneline               # commit history (compact)
+git log --oneline -5            # last 5 commits only
+```
+
+### Branches
+
+```bash
+git branch                      # list branches
+git checkout -b feature/name    # create + switch to new branch
+git checkout main               # switch to existing branch
+git branch -d feature/name      # delete local branch
+git push -u origin feature/name # push new branch to remote
+```
+
+### Fix Merge Conflicts
+
+```bash
+git status                              # find conflicted files
+
+# After manually resolving conflicts in the file:
+git add start.sh
+git commit -m "resolve merge conflict"
+
+# Take the remote version of a file (theirs)
+git checkout --theirs start.sh && git add start.sh
+
+# Keep your local version (ours)
+git checkout --ours start.sh && git add start.sh
+```
+
+### Undo Mistakes
+
+```bash
+git reset --soft HEAD~1         # undo last commit, keep changes staged
+git reset --hard HEAD~1         # undo last commit + discard changes
+git revert <commit-sha>         # safe undo (safe for shared branches)
+git commit --amend -m "fixed"   # fix last commit message
+```
+
+### Useful One-Liners
+
+```bash
+# Update + restart Jarvis in one shot
+cd ~/jarvis && git stash && git pull && git stash pop && bash start.sh
+
+# Check what changed since last pull
+git diff HEAD@{1} HEAD --stat
+
+# See who changed what
+git log --oneline --author="yourname"
+
+# Undo all local changes and sync to remote clean
+git fetch origin && git reset --hard origin/main
+```
 
 ---
 
