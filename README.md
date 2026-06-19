@@ -45,6 +45,11 @@ cd ~/jarvis && bash start.sh
 cd ~/jarvis && git pull && bash start.sh
 ```
 
+**Update + apply all patches (hotfix included):**
+```bash
+cd ~/jarvis && git pull && python3 hotfix.py
+```
+
 Or step by step:
 ```bash
 cd ~/jarvis
