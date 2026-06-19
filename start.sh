@@ -14,7 +14,24 @@ mkdir -p "$LOG_DIR" "$BIN_DIR"
 # Add ~/bin to PATH
 export PATH="$BIN_DIR:$PREFIX/bin:$PATH"
 
-# ── Banner ────────────────────────────────────────────────────
+# ── Subcommand: vscode ──────────────────────────────────────
+if [ "${1}" = "vscode" ]; then
+    if ! command -v code-server &>/dev/null; then
+        echo "[*] Installing code-server..."
+        pkg install -y code-server -q 2>/dev/null || {
+            echo "[!] pkg install failed - try: npm install -g code-server"
+            exit 1
+        }
+    fi
+    echo "[*] Starting VS Code (code-server)..."
+    echo "    → http://localhost:8080"
+    PASSWD=$(cat ~/.config/code-server/config.yaml 2>/dev/null | grep password | awk '{print $2}')
+    [ -n "$PASSWD" ] && echo "    Password: $PASSVD" || echo "    Password: check ~/.config/code-server/config.yaml"
+    code-server --bind-addr 127.0.0.1:8080 "$JARVIS_DIR"
+    exit 0
+fi
+
+# ── Banner ───────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════╗"
 echo "║  J.A.R.V.I.S.  ·  UNIVERSAL TERMUX EDITION  ║"
@@ -23,7 +40,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── Device Detection ──────────────────────────────────────────
-ARCH=$(uname -m)                      # aarch64 | armv7l | x86_64
+ARCH=$(uname -m)
 ANDROID=$(getprop ro.build.version.release 2>/dev/null || echo "unknown")
 TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo 2097152)
 TOTAL_RAM_MB=$((TOTAL_RAM_KB / 1024))
@@ -34,15 +51,13 @@ echo "    Android      : $ANDROID"
 echo "    RAM          : ${TOTAL_RAM_MB}MB"
 echo ""
 
-# ── Determine best model for this device's RAM ────────────────
 if   [ "$TOTAL_RAM_MB" -lt 1800 ]; then MODEL="tinyllama"
-elif [ "$TOTAL_RAM_MB" -lt 6000 ]; then MODEL="dolphin-phi:2.7b"
-else                                     MODEL="dolphin-mistral:7b-v2.8"
+elif [ "$TOTAL_RAM_MB" -lt 6000 ]; then MODEL="DOlphin-phi:2.7b"
+else                                     MODEL="DOlphin-mistral:7b-v2.8"
 fi
 echo "[*] Recommended model for ${TOTAL_RAM_MB}MB RAM: $MODEL"
 echo ""
 
-# ── Set num_ctx based on RAM ──────────────────────────────────
 if   [ "$TOTAL_RAM_MB" -lt 2000 ]; then NUM_CTX=512
 elif [ "$TOTAL_RAM_MB" -lt 4000 ]; then NUM_CTX=1024
 elif [ "$TOTAL_RAM_MB" -lt 6000 ]; then NUM_CTX=2048
@@ -51,51 +66,40 @@ fi
 export JARVIS_NUM_CTX="$NUM_CTX"
 echo "[*] Context window: $NUM_CTX tokens"
 
-# ── Core dependencies ─────────────────────────────────────────
 echo "[*] Installing core packages (pkg)..."
-# Always update first — old Termux pkg index is stale
 pkg update -y -q 2>/dev/null || true
 
 for pkg_name in python git curl wget; do
     if ! command -v "$pkg_name" &>/dev/null; then
-        pkg install -y "$pkg_name" -q 2>/dev/null && echo "    $pkg_name: installed" || echo "    $pkg_name: failed (continuing)"
+        pkg install -y "$pkg_name" -q 2>/dev/null && echo "    $pkg_name: installed" || echo "    $pkg_name: failed"
     else
         echo "    $pkg_name: OK"
     fi
 done
 
-# ── Python pip packages ───────────────────────────────────────
 echo "[*] Installing Python packages..."
 pip install flask flask-cors -q 2>/dev/null || pip3 install flask flask-cors -q 2>/dev/null
 echo "    flask + flask-cors: OK"
 
-# ── Ollama install (smart multi-path) ─────────────────────────
 echo ""
 echo "[*] Checking Ollama..."
 OLLAMA_OK=false
 
-# Path 1: pkg install ollama (F-Droid Termux, recent versions)
 if ! command -v ollama &>/dev/null; then
-    echo "    Trying pkg install ollama..."
     pkg install -y ollama -q 2>/dev/null && OLLAMA_OK=true
 fi
 
-# Path 2: Binary download (for old Termux or Play Store version)
 if ! command -v ollama &>/dev/null && [ "$ARCH" = "aarch64" ]; then
-    echo "    pkg failed — downloading Ollama binary (ARM64)..."
+    echo "    Downloading Ollama binary (ARM64)..."
     OLLAMA_URL="https://github.com/ollama/ollama/releases/latest/download/ollama-linux-arm64"
-    if curl -fsSL -o "$BIN_DIR/ollama" "$OLLAMA_URL" 2>/dev/null; then
+  | if curl -fsSL -o "$BIN_DIR/ollama" "$OLLAMA_URL" 2>/dev/null; then
         chmod +x "$BIN_DIR/ollama"
-        command -v ollama &>/dev/null && OLLAMA_OK=true && echo "    Binary installed: OK"
-    else
-        echo "    Binary download failed — will run UI-only mode"
+        command -v ollama &>/dev/null && OLLAMA_OK=true
     fi
 fi
 
-# Path 3: ARM32 — Ollama doesn't support it; skip gracefully
 if ! command -v ollama &>/dev/null && [ "$ARCH" = "armv7l" ]; then
-    echo "    [!] ARM32 device — Ollama requires ARM64."
-    echo "        J.A.R.V.I.S. will run in offline/demo mode."
+    echo "    [!] ARM32 device - Ollama requires ARM64. Running UI-only mode."
     export JARVIS_NO_OLLAMA=1
 fi
 
@@ -104,9 +108,8 @@ if command -v ollama &>/dev/null; then
     OLLAMA_OK=true
 fi
 
-# ── Start Ollama ──────────────────────────────────────────────
 if [ "$OLLAMA_OK" = "true" ]; then
-    if ! pgrep -x "ollama" > /dev/null 2>&1; then
+    if ! pgrep -x ollama > /dev/null 2>&1; then
         echo "[*] Starting Ollama daemon..."
         OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 \
         ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
@@ -115,7 +118,6 @@ if [ "$OLLAMA_OK" = "true" ]; then
         echo "[*] Ollama: already running"
     fi
 
-    # Wait for Ollama to be truly ready (up to 20s)
     echo "[*] Waiting for Ollama to be ready..."
     for i in $(seq 1 20); do
         if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
@@ -123,72 +125,27 @@ if [ "$OLLAMA_OK" = "true" ]; then
             break
         fi
         sleep 1
-        if [ "$i" -eq 20 ]; then
-            echo "[!] Ollama took too long — continuing anyway"
-        fi
+        [ "$i" -eq 20 ] && echo "[!] Ollama took too long - continuing"
     done
 
-    # Pull recommended model if nothing installed — SYNCHRONOUS so it's ready before the browser opens
     MODEL_COUNT=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
     if [ "$MODEL_COUNT" -eq 0 ]; then
-        echo ""
-        echo "╔═════════════════════════════════════════════╗"
-        echo "║  No models found — pulling $MODEL"
-        echo "║  This may take 2–10 minutes on first run.    "
-        echo "║  Progress shown below. Please wait...        "
-        echo "╚══════════════════════════════════════════════╝"
-        echo ""
-        ollama pull "$MODEL"
-        PULL_EXIT=$?
-        if [ "$PULL_EXIT" -ne 0 ]; then
-            echo "[!] Pull failed (exit $PULL_EXIT). Trying tinyllama as fallback..."
-            ollama pull tinyllama
-            MODEL="tinyllama"
-        fi
-        echo "[✓] Model ready"
-        # Create uncensored 'jarvis' wrapper model
-        echo "[*] Creating uncensored jarvis model..."
+        echo "[*] Pulling $MODEL {first run may take 2-10 min)..."
+        ollama pull "$MODEL" || { ollama pull tinyllama; MODEL="tinyllama"; }
         printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
-        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | grep -q "success\|writing\|using"; then
-            echo "[✓] jarvis model ready"
-            MODEL="jarvis"
-        elif ollama list 2>/dev/null | grep -q "^jarvis"; then
-            echo "[✓] jarvis model created"
-            MODEL="jarvis"
-        else
-            echo "[!] jarvis model creation failed — using $MODEL"
-        fi
+        ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | grep -q "success\|writing\|using" && MODEL="jarvis"
     else
-        # Use the ACTUAL installed model name, not the RAM-guessed one
         INSTALLED_MODEL=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | head -1)
-        if [ -n "$INSTALLED_MODEL" ]; then
-            MODEL="$INSTALLED_MODEL"
-        fi
-        echo "[*] Models available: $MODEL_COUNT"
-        ollama list 2>/dev/null | tail -n +2 | awk '{print "    • "$1}'
-        echo "[*] Active model: $MODEL"
-        # Always recreate jarvis model fresh (delete stale one first)
-        JARVIS_EXISTS=$(ollama list 2>/dev/null | grep "^jarvis" | wc -l)
-        if [ "$JARVIS_EXISTS" -gt 0 ]; then
-            echo "[*] Removing old jarvis model..."
-            ollama rm jarvis 2>/dev/null || true
-        fi
-        echo "[*] Creating uncensored jarvis model from $MODEL..."
+        [ -n "$INSTALLED_MODEL" ] && MODEL="IINSTALLED_MODEL"
+        ollama rm jarvis 2>/dev/null || true
         printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
         if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | tee "$LOG_DIR/jarvis_create.log" | grep -q "success\|writing\|using"; then
-            echo "[✓] jarvis model ready"
-            MODEL="jarvis"
-        elif ollama list 2>/dev/null | grep -q "^jarvis"; then
-            echo "[✓] jarvis model created"
-            MODEL="jarvis"
-        else
-            echo "[!] Could not create jarvis model — using $MODEL directly"
-            cat "$LOG_DIR/jarvis_create.log" 2>/dev/null || true
+            MODEL="IARVIS
+      ee�e�        Iat �LOG_DIR/jarvis_create.log" 2>/dev/null || true
         fi
     fi
 fi
 
-# ── Write device config for server.py ─────────────────────────
 cat > "$JARVIS_DIR/device_config.json" <<EOF
 {
   "arch": "$ARCH",
@@ -201,10 +158,8 @@ cat > "$JARVIS_DIR/device_config.json" <<EOF
 EOF
 echo "[*] Device config written."
 
-# ── Kill stale server ─────────────────────────────────────────
 pkill -f "server.py" 2>/dev/null; sleep 1
 
-# ── Start JARVIS backend ──────────────────────────────────────
 echo "[*] Starting J.A.R.V.I.S. backend..."
 cd "$JARVIS_DIR"
 python3 server.py > "$LOG_DIR/server.log" 2>&1 &
@@ -212,28 +167,24 @@ SERVER_PID=$!
 echo "$SERVER_PID" > "$TMPBASE/jarvis_server.pid"
 sleep 2
 
-# ── Result ────────────────────────────────────────────────────
 if kill -0 "$SERVER_PID" 2>/dev/null; then
     echo ""
     echo "  ╔══════════════════════════════════════════╗"
-    echo "  ║   ✓  J.A.R.V.I.S. IS ONLINE             ║"
-    echo "  ║   →  http://localhost:8000               ║"
+    echo "  ║   ✒  J.A.R.V.I.S. IS ONLINE             ║"
+    echo "  ║   →  http://localhost:8000              ║"
     echo "  ╚══════════════════════════════════════════╝"
     echo ""
     echo "  RAM:    ${TOTAL_RAM_MB}MB  |  Arch: $ARCH  |  ctx: $NUM_CTX"
     echo "  Model:  $MODEL"
     echo "  Logs:   $LOG_DIR/server.log"
     echo ""
-
-    # Open browser
     if command -v termux-open-url &>/dev/null; then
         termux-open-url "http://localhost:8000"
     else
-        am start -a android.intent.action.VIEW -d "http://localhost:8000" 2>/dev/null || \
+        am start -a android.intent.action.VIEW  -d "http://localhost:8000" 2>/dev/null || \
         echo "  → Open http://localhost:8000 in your browser"
     fi
 else
-    echo ""
     echo "  ✗ Server failed. Check:"
     echo "    cat $LOG_DIR/server.log"
     tail -5 "$LOG_DIR/server.log" 2>/dev/null
