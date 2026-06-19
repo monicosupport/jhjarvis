@@ -132,7 +132,7 @@ if [ "$OLLAMA_OK" = "true" ]; then
     MODEL_COUNT=$(ollama list 2>/dev/null | tail -n +2 | wc -l)
     if [ "$MODEL_COUNT" -eq 0 ]; then
         echo ""
-        echo "╔══════════════════════════════════════════════╗"
+        echo "╔═════════════════════════════════════════════╗"
         echo "║  No models found — pulling $MODEL"
         echo "║  This may take 2–10 minutes on first run.    "
         echo "║  Progress shown below. Please wait...        "
@@ -175,7 +175,7 @@ if [ "$OLLAMA_OK" = "true" ]; then
         fi
         echo "[*] Creating uncensored jarvis model from $MODEL..."
         printf 'FROM %s\nSYSTEM ""\nPARAMETER temperature 0.8\nPARAMETER top_p 0.95\n' "$MODEL" > "$JARVIS_DIR/Modelfile"
-        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | tee /tmp/jarvis_create.log | grep -q "success\|writing\|using"; then
+        if ollama create jarvis -f "$JARVIS_DIR/Modelfile" 2>&1 | tee "$LOG_DIR/jarvis_create.log" | grep -q "success\|writing\|using"; then
             echo "[✓] jarvis model ready"
             MODEL="jarvis"
         elif ollama list 2>/dev/null | grep -q "^jarvis"; then
@@ -183,7 +183,7 @@ if [ "$OLLAMA_OK" = "true" ]; then
             MODEL="jarvis"
         else
             echo "[!] Could not create jarvis model — using $MODEL directly"
-            cat /tmp/jarvis_create.log 2>/dev/null || true
+            cat "$LOG_DIR/jarvis_create.log" 2>/dev/null || true
         fi
     fi
 fi
